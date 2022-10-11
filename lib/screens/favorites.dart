@@ -28,24 +28,12 @@ class _FavoritesPage extends State<FavoritesPage> {
   }
 
   void _load() {
-    _getMangas().then((value) {
+    DatabaseHelper.db.getMangaReadingOrder().then((value) {
       // check if file exists in FS
       setState(() {
         mangas = value;
       });
     });
-  }
-
-  Future<List<MangaView>> _getMangas() async {
-    var value = await DatabaseHelper.db.getMangaReadingOrder();
-    if (value.isEmpty) {
-      print('===> NO MANGAS BOOKMARKED');
-    } else {
-      for (var v in value) {
-        print('===> ${v.title} ${v.src}');
-      }
-    }
-    return value;
   }
 
   Future<Chapter?> _chooseCurrentChapter(
@@ -60,7 +48,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                 title: const Text('Choose viewed chapter'),
                 content: DropdownButton<Chapter>(
                   isExpanded: true,
-                  value: manga?.getViewedChapter(),
+                  value: manga?.getBookmarkedChapter(),
                   icon: const Icon(Icons.keyboard_arrow_down),
                   items: manga?.chapters.reversed.map((Chapter chapter) {
                     return DropdownMenuItem(
@@ -70,7 +58,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                   }).toList(),
                   onChanged: (Chapter? newValue) {
                     setState(() {
-                      manga?.setReadChapter(newValue!);
+                      manga?.bookmark(newValue!);
                     });
                   },
                 ),
@@ -101,12 +89,12 @@ class _FavoritesPage extends State<FavoritesPage> {
                       setState(() {
                         DatabaseHelper.db.updateManga(manga!);
                         setState(() {
-                          var viewed = manga.getViewedChapter();
+                          var viewed = manga.getBookmarkedChapter();
                           if (viewed != null) {
                             mangaView.viewedChapter = viewed.title;
                           }
                         });
-                        Navigator.pop(context);
+                        Navigator.pop(context, manga.getBookmarkedChapter());
                       });
                     },
                   ),
@@ -127,7 +115,6 @@ class _FavoritesPage extends State<FavoritesPage> {
     try {
       var cnt = 0;
       for (var ch in chapters) {
-        pd.update(value: ++cnt);
         var imgs = await Manganato.chapterImages(manga.src, ch.src);
         List<Future<File>> futures = [];
         for (var i = 0; i < imgs.length; i++) {
@@ -137,6 +124,7 @@ class _FavoritesPage extends State<FavoritesPage> {
         await Future.wait(futures);
         ch.markDownloaded(imgs.length);
         DatabaseHelper.db.updateManga(manga);
+        pd.update(value: ++cnt);
       }
     } finally {
       pd.close();
@@ -194,7 +182,6 @@ class _FavoritesPage extends State<FavoritesPage> {
         actions: [
           // Navigate to the Search Screen
           IconButton(onPressed: () => {}, icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: () => {}, icon: const Icon(Icons.download)),
           IconButton(onPressed: () => {}, icon: const Icon(Icons.recycling)),
         ],
       ),
@@ -209,7 +196,8 @@ class _FavoritesPage extends State<FavoritesPage> {
           var formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
           return InkWell(
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ReaderPage(mangaID: manga.id))),
+                  builder: (_) => ReaderPage(mangaID: manga.id)))
+                  .then((value) => _load()),
               child: IntrinsicHeight(
                   child: Row(
                 mainAxisSize: MainAxisSize.max,
@@ -260,19 +248,17 @@ class _FavoritesPage extends State<FavoritesPage> {
                       Row(
                         children: [
                           const Text('Viewed: '),
-                          Text(manga.viewedChapter != ''
-                              ? manga.viewedChapter
-                              : 'TBD'),
+                          Text(manga.viewedChapter),
                         ],
                       ),
                       Row(
                         children: [
                           const Text('Current: '),
                           Text(
-                            manga.lastChapter,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo,
+                            manga.lastChapter + (manga.missingDownloads > 0 ? ' (${manga.missingDownloads})' : ''),
+                            style: TextStyle(
+                              fontWeight: manga.viewedChapter != manga.lastChapter ? FontWeight.bold : FontWeight.normal,
+                              color: manga.viewedChapter != manga.lastChapter ? Colors.green : Colors.black,
                             ),
                           ),
                         ],
@@ -293,6 +279,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                           return _deleteManga(context, manga);
                         case 'download':
                           _downloadFromViewed(context, manga).then((value) {
+                            _load();
                             var snackBar = const SnackBar(
                                 content: Text("Finished Downloading"));
                             ScaffoldMessenger.of(context)
@@ -307,15 +294,15 @@ class _FavoritesPage extends State<FavoritesPage> {
                         PopupMenuItem(
                           onTap: () {
                             _chooseCurrentChapter(context, manga).then((value) {
-                              setState(() {});
+                                _load();
                             });
                           },
                           value: 'set_viewed',
                           child: const Text('Select Viewed'),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'download',
-                          child: Text('Download'),
+                          child: Text('Download${manga.missingDownloads > 0 ? ' (${manga!.missingDownloads})' : ''}' ),
                         ),
                         const PopupMenuItem(
                           value: 'recycle',

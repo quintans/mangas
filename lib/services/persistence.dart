@@ -46,8 +46,7 @@ class DatabaseHelper {
             $_mgImg TEXT, 
             $_mgSrc TEXT NOT NULL, 
             $_mgViewedChapterID INTEGER, 
-            $_mgLastChapterID INTEGER, 
-            CONSTRAINT uksrc UNIQUE($_mgSrc)
+            $_mgLastChapterID INTEGER
           )''',
         );
         await db.execute(
@@ -60,7 +59,6 @@ class DatabaseHelper {
             $_chUploadedAt INTEGER,
             $_chImgCnt INTEGER,
             PRIMARY KEY ($_chMangaID, $_chID),
-            CONSTRAINT uksrc UNIQUE($_chSrc),
             FOREIGN KEY($_chMangaID) REFERENCES mangas($_mgID)
           )''',
         );
@@ -78,14 +76,14 @@ class DatabaseHelper {
       id = await txn.insert(
         _mgTable,
         manga.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      var cnt = 0;
       for (var ch in manga.chapters) {
         ch.mangaID = id;
+        ch.id = ++cnt;
         await txn.insert(
           _chTable,
           ch.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
     });
@@ -138,7 +136,7 @@ class DatabaseHelper {
     if (mangas.isEmpty) {
       return null;
     }
-    var chapters = await db.query(_chTable, where: '$_chMangaID = ?', whereArgs: [id]);
+    var chapters = await db.query(_chTable, where: '$_chMangaID = ?', whereArgs: [id], orderBy: '$_chID ASC');
     return _toManga(mangas.first, chapters);
   }
 
@@ -146,21 +144,23 @@ class DatabaseHelper {
     final db = await database;
     List<MangaView> mangas = [];
     final List<Map<String, Object?>> unread = await db!.rawQuery(
-        '''SELECT m.*, v.$_chTitle AS vw_title, c.$_chTitle AS last_title, c.$_chUploadedAt
+        '''SELECT m.*, v.$_chTitle AS vw_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
+        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgViewedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
            LEFT JOIN $_chTable v ON v.$_chMangaID = m.$_mgID AND v.$_chID = m.$_mgViewedChapterID
            LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID
-           WHERE m.$_mgViewedChapterID <> c.$_chID
+           WHERE m.$_mgViewedChapterID <> m.$_mgLastChapterID
            ORDER BY c.$_chUploadedAt DESC'''
     );
     for (var e in unread) {
       mangas.add(_toMangaView(e));
     }
     final List<Map<String, Object?>> read = await db.rawQuery(
-        '''SELECT m.*, c.$_chTitle AS vw_title, c.$_chTitle AS last_title, c.$_chUploadedAt
+        '''SELECT m.*, c.$_chTitle AS vw_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
+        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgViewedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
            LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID
-           WHERE m.$_mgViewedChapterID = c.$_chID
+           WHERE m.$_mgViewedChapterID = m.$_mgLastChapterID
            ORDER BY c.$_chUploadedAt DESC'''
     );
     for (var e in read) {
@@ -172,10 +172,10 @@ class DatabaseHelper {
   Future<List<String>> getMangaSources() async {
     final db = await database;
     List<String> sources = [];
-    final List<Map<String, dynamic>> unread =
+    final List<Map<String, Object?>> unread =
         await db!.rawQuery('SELECT m.$_mgSrc FROM $_mgTable m');
     for (var e in unread) {
-      sources.add(e[_mgSrc]);
+      sources.add(e[_mgSrc].toString());
     }
     return sources;
   }
@@ -222,6 +222,7 @@ class DatabaseHelper {
       viewedChapter: e['vw_title']?.toString() ?? '',
       lastChapter: e['last_title']?.toString() ?? '',
       lastUploadedAt: at,
+      missingDownloads: e['to_download'] as int,
     );
   }
 }

@@ -54,11 +54,7 @@ class Manga {
     chapters.add(ch);
   }
 
-  setReadChapter(Chapter ch) {
-    viewedChapterID = ch.id;
-  }
-
-  Chapter? getViewedChapter() {
+  Chapter? getBookmarkedChapter() {
     if (viewedChapterID <= 0) {
       return null;
     }
@@ -67,8 +63,7 @@ class Manga {
 
   List<Chapter> getChaptersToDownload() {
     List<Chapter> chs = [];
-    var idx = viewedChapterID <= 0 ? 0 : viewedChapterID -1;
-    for (var i = idx; i < chapters.length; i++) {
+    for (var i = viewedChapterID -1; i < chapters.length; i++) {
       if (!chapters[i].downloaded) {
         chs.add(chapters[i]);
       }
@@ -76,23 +71,19 @@ class Manga {
     return chs;
   }
 
-  List<Chapter> getDownloadedChapters() {
-    List<Chapter> chs = [];
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].downloaded) {
-        chs.add(chapters[i]);
-      }
-    }
-    return chs;
+  List<Chapter> getChapters() {
+    return chapters;
   }
 
   bool hasPreviousChapter(Chapter chapter) {
     return chapter.id > 1 && chapters[chapter.id - 2].downloaded;
   }
 
-  Chapter previousChapter(Chapter chapter) {
+  Chapter moveToPreviousChapter(Chapter chapter) {
     if (hasPreviousChapter(chapter)) {
-      return chapters[chapter.id - 2];
+      var ch = chapters[chapter.id - 2];
+      viewedChapterID = ch.id;
+      return ch;
     }
     return chapter;
   }
@@ -101,9 +92,11 @@ class Manga {
     return chapters.length > chapter.id && chapters[chapter.id].downloaded;
   }
 
-  Chapter nextChapter(Chapter chapter) {
+  Chapter moveToNextChapter(Chapter chapter) {
     if (hasNextChapter(chapter)) {
-      return chapters[chapter.id];
+      var ch = chapters[chapter.id];
+      viewedChapterID = ch.id;
+      return ch;
     }
     return chapter;
   }
@@ -141,14 +134,18 @@ class Chapter {
 
   Map<String, Object?> toMap() {
     return {
-      'id': id,
       'manga_id': mangaID,
+      'id': id,
       'title': title,
       'src': src,
       'downloaded': downloaded ? 1 : 0,
       'img_cnt': imgCnt,
       'uploaded_at': uploadedAt.millisecondsSinceEpoch,
     };
+  }
+
+  bool isDownloaded() {
+    return downloaded;
   }
 
   bool isNew() {
@@ -179,6 +176,7 @@ class MangaView {
   String viewedChapter;
   final String lastChapter;
   final DateTime lastUploadedAt;
+  final int missingDownloads;
 
   MangaView({
     required this.id,
@@ -188,6 +186,7 @@ class MangaView {
     required this.viewedChapter,
     required this.lastChapter,
     required this.lastUploadedAt,
+    required this.missingDownloads,
   });
 
   @override

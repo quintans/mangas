@@ -117,7 +117,7 @@ class _SearchPage extends State<SearchPage> {
         title: item.title,
         img: item.img,
         src: item.src,
-        viewedChapterID: -1,
+        viewedChapterID: 1,
         lastChapterID: 0,
         chapters: chapters);
     // save image to directory
@@ -204,7 +204,7 @@ class _SearchPage extends State<SearchPage> {
                       : () async {
                           _onBookmark(item);
                           var snackBar = SnackBar(
-                              content: Text("You Click on item #$index"));
+                              content: Text("Bookmarked ${item.title}"));
                           ScaffoldMessenger.of(context).showSnackBar(snackBar);
                         },
                   icon: Icon(disabled

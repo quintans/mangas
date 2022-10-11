@@ -20,7 +20,7 @@ class ReaderPage extends StatefulWidget {
 
 const double _bottomNavBarHeight = 60;
 
-class _ReaderPage extends State<ReaderPage> {
+class _ReaderPage extends State<ReaderPage> with RouteAware {
   bool fullScreen = true;
   bool showBars = false;
 
@@ -35,24 +35,18 @@ class _ReaderPage extends State<ReaderPage> {
 
     // Setup the listener.
     _controller.addListener(() {
-      setState(() {
-        showBars = isAtTheBottom();
-        if (!showBars) {
-          return;
-        }
-        if (!manga!.isBookmarked(chapter!)) {
-          manga!.bookmark(chapter!);
-        }
-      });
+      var atBottom = isAtTheBottom();
+      if (showBars != atBottom) {
+        setState(() {
+          showBars = atBottom;
+        });
+      }
     });
 
     DatabaseHelper.db.getManga(widget.mangaID).then((value) {
       setState(() {
         manga = value;
-        chapter = manga!.getViewedChapter();
-        if (chapter != null) {
-          chapter = manga!.nextChapter(chapter!);
-        }
+        chapter = manga!.getBookmarkedChapter();
       });
     });
 
@@ -70,9 +64,6 @@ class _ReaderPage extends State<ReaderPage> {
 
   @override
   void dispose() {
-    if (manga != null) {
-      DatabaseHelper.db.updateManga(manga!);
-    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -98,18 +89,25 @@ class _ReaderPage extends State<ReaderPage> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
+  void _scrollUp() {
+    _controller.animateTo(
+      0,
+      duration: const Duration(seconds: 2),
+      curve: Curves.fastOutSlowIn,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: showBars
             ? AppBar(
                 toolbarHeight: 120,
-                title: Column(
+                title: Row(
                   children: [
-                    Row(
+                    Expanded(child: Text(manga?.title ?? '', maxLines: 3,),),
+                    Column(
                       children: [
-                        Text(manga?.title ?? ''),
-                        const Spacer(),
                         DropdownButton<Chapter>(
                           value: chapter,
                           style: const TextStyle(
@@ -121,6 +119,8 @@ class _ReaderPage extends State<ReaderPage> {
                           onChanged: (Chapter? newValue) {
                             setState(() {
                               chapter = newValue;
+                              manga?.bookmark(chapter!);
+                              DatabaseHelper.db.updateManga(manga!);
                             });
                           },
                           underline: Container(
@@ -129,7 +129,7 @@ class _ReaderPage extends State<ReaderPage> {
                           ),
                           selectedItemBuilder: (BuildContext context) {
                             return manga!
-                                .getDownloadedChapters()
+                                .getChapters()
                                 .reversed
                                 .map<Widget>((Chapter value) {
                               return Text(
@@ -139,54 +139,49 @@ class _ReaderPage extends State<ReaderPage> {
                             }).toList();
                           },
                           items: manga
-                              ?.getDownloadedChapters()
+                              ?.getChapters()
                               .reversed
                               .map((Chapter chapter) {
                             return DropdownMenuItem(
                               value: chapter,
                               child: Text(chapter.title,
-                                  style: const TextStyle(color: Colors.black)),
+                                  style: TextStyle(color: chapter.isDownloaded() ? Colors.black : Colors.grey)),
                             );
                           }).toList(),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios),
+                              onPressed: manga?.hasPreviousChapter(chapter!) ??
+                                  false
+                                  ? () {
+                                setState(() {
+                                  _controller.jumpTo(0);
+                                  chapter =
+                                      manga!.moveToPreviousChapter(chapter!);
+                                  DatabaseHelper.db.updateManga(manga!);
+                                });
+                              }
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.arrow_forward_ios),
+                              onPressed: manga?.hasNextChapter(chapter!) ?? false
+                                  ? () {
+                                setState(() {
+                                  _controller.jumpTo(0);
+                                  chapter =
+                                      manga!.moveToNextChapter(chapter!);
+                                  DatabaseHelper.db.updateManga(manga!);
+                                });
+                              }
+                                  : null,
+                            ),
+                          ],
                         )
                       ],
                     ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(manga?.isBookmarked(chapter!) ?? false ? Icons.remove_red_eye_outlined : Icons.remove_red_eye),
-                          onPressed: () {
-                            setState(() {
-                              manga!.bookmark(chapter!);
-                            });
-                          },
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios),
-                          onPressed: manga?.hasPreviousChapter(chapter!) ??
-                                  false
-                              ? () {
-                                  setState(() {
-                                    manga!.bookmark(chapter!);
-                                    chapter = manga!.previousChapter(chapter!);
-                                  });
-                                }
-                              : null,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios),
-                          onPressed: manga?.hasNextChapter(chapter!) ?? false
-                              ? () {
-                                  setState(() {
-                                    manga!.bookmark(chapter!);
-                                    chapter = manga!.nextChapter(chapter!);
-                                  });
-                                }
-                              : null,
-                        ),
-                      ],
-                    )
                   ],
                 ))
             : null,
@@ -223,6 +218,14 @@ class _ReaderPage extends State<ReaderPage> {
                 );
               },
               controller: _controller,
-            )));
+            )),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _scrollUp();
+        },
+        backgroundColor: Colors.blueGrey.withOpacity(0.3),
+        child: const Icon(Icons.arrow_upward),
+      ),
+    );
   }
 }
