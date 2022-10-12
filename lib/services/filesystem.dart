@@ -60,7 +60,17 @@ class MyFS {
   }
 
   static deleteManga(String mangaSrc) {
-    Directory(join([mangasFolder(), mangaSrc])).deleteSync(recursive: true);
+    var dir = Directory(join([mangasFolder(), mangaSrc]));
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
+  }
+
+  static deleteChapter(String mangaSrc, String chapterSrc) {
+    var dir = Directory(join([mangasFolder(), mangaSrc, chapterSrc]));
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
   }
 
   static String join(List<String> parts) {

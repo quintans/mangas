@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:manganato/services/filesystem.dart';
+import 'package:manganato/services/persistence.dart';
 import './screens/favorites.dart';
 
 void main() async {

@@ -140,6 +140,22 @@ class DatabaseHelper {
     return _toManga(mangas.first, chapters);
   }
 
+  Future<List<Manga>> getMangas() async {
+    final db = await database;
+    var res = await db!.query(_mgTable);
+    if (res.isEmpty) {
+      return [];
+    }
+    List<Manga> mangas = [];
+    for(var r in res) {
+      var chapters = await db.query(_chTable, where: '$_chMangaID = ?',
+          whereArgs: [r[_mgID]],
+          orderBy: '$_chID ASC');
+      mangas.add(_toManga(r, chapters));
+    }
+    return mangas;
+  }
+
   Future<List<MangaView>> getMangaReadingOrder() async {
     final db = await database;
     List<MangaView> mangas = [];

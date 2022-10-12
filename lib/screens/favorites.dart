@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:manganato/services/filesystem.dart';
 import 'package:manganato/services/manganato.dart';
 import 'package:manganato/services/persistence.dart';
+import 'package:manganato/utils/utils.dart';
 import './search.dart';
 import './reader.dart';
 import '../models/persistence.dart';
@@ -27,8 +28,8 @@ class _FavoritesPage extends State<FavoritesPage> {
     _load();
   }
 
-  void _load() {
-    DatabaseHelper.db.getMangaReadingOrder().then((value) {
+  Future<void> _load() async {
+    return DatabaseHelper.db.getMangaReadingOrder().then((value) {
       // check if file exists in FS
       setState(() {
         mangas = value;
@@ -106,6 +107,7 @@ class _FavoritesPage extends State<FavoritesPage> {
   }
 
   Future<void> _downloadFromViewed(BuildContext context, MangaView view) async {
+    var snack = Snack(context: context);
     final ProgressDialog pd = ProgressDialog(context: context);
 
     var manga = await DatabaseHelper.db.getManga(view.id);
@@ -129,6 +131,8 @@ class _FavoritesPage extends State<FavoritesPage> {
     } finally {
       pd.close();
     }
+    await _load();
+    snack.show("Finished Downloading");
   }
 
   _deleteManga(BuildContext context, MangaView mangaView) async {
@@ -158,11 +162,10 @@ class _FavoritesPage extends State<FavoritesPage> {
               ),
               child: const Text('OK'),
               onPressed: () {
-                MyFS.deleteManga(mangaView.src);
                 DatabaseHelper.db.deleteManga(mangaView.id);
                 Navigator.pop(context);
                 setState(() {
-                  _load();
+                  _load().then((value) => MyFS.deleteManga(mangaView.src));
                 });
               },
             ),
@@ -170,6 +173,57 @@ class _FavoritesPage extends State<FavoritesPage> {
         );
       },
     );
+  }
+
+  _lookForNewChapters() async {
+    var snack = Snack(context: context);
+    final ProgressDialog pd = ProgressDialog(context: context);
+
+    var mng = await DatabaseHelper.db.getMangas();
+    pd.show(max: mng.length, msg: 'Looking for new chapters...');
+    var count = 0;
+    for (var m in mng) {
+      var last = m.getChapters().last;
+      var newChapters = await Manganato.chapters(m.src, last.src);
+      for (var r in newChapters) {
+        m.addChapter(Chapter(
+          id: 0,
+          mangaID: 0,
+          title: r.title,
+          src: r.src,
+          uploadedAt: r.uploadedAt,
+          downloaded: false,
+          imgCnt: 0,
+        ));
+      }
+      if (newChapters.isNotEmpty) {
+        await DatabaseHelper.db.updateManga(m);
+      }
+      pd.update(value: ++count);
+    }
+    snack.show('Finished looking for new chapters');
+    _load();
+  }
+
+  _discardChapters() async {
+    var snack = Snack(context: context);
+
+    final ProgressDialog pd = ProgressDialog(context: context);
+    var mangas = await DatabaseHelper.db.getMangas();
+    pd.show(max: mangas.length, msg: 'Discarding old chapters...');
+    var count = 0;
+    for (var manga in mangas) {
+      pd.update(value: ++count);
+      var chapters = manga.getChaptersToDiscard();
+      for (var c in chapters) {
+        await MyFS.deleteChapter(manga.src, c.src);
+        c.discarded();
+      }
+      if (chapters.isNotEmpty) {
+        DatabaseHelper.db.updateManga(manga);
+      }
+    }
+    snack.show('Finished discarding old chapters');
   }
 
   @override
@@ -181,8 +235,8 @@ class _FavoritesPage extends State<FavoritesPage> {
         title: const Text(title),
         actions: [
           // Navigate to the Search Screen
-          IconButton(onPressed: () => {}, icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: () => {}, icon: const Icon(Icons.recycling)),
+          IconButton(onPressed: () => _lookForNewChapters(), icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: () => _discardChapters(), icon: const Icon(Icons.recycling)),
         ],
       ),
       body: ListView.separated(
@@ -195,8 +249,9 @@ class _FavoritesPage extends State<FavoritesPage> {
           var manga = mangas[index];
           var formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
           return InkWell(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ReaderPage(mangaID: manga.id)))
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(
+                      builder: (_) => ReaderPage(mangaID: manga.id)))
                   .then((value) => _load()),
               child: IntrinsicHeight(
                   child: Row(
@@ -255,10 +310,18 @@ class _FavoritesPage extends State<FavoritesPage> {
                         children: [
                           const Text('Current: '),
                           Text(
-                            manga.lastChapter + (manga.missingDownloads > 0 ? ' (${manga.missingDownloads})' : ''),
+                            manga.lastChapter +
+                                (manga.missingDownloads > 0
+                                    ? ' (${manga.missingDownloads})'
+                                    : ''),
                             style: TextStyle(
-                              fontWeight: manga.viewedChapter != manga.lastChapter ? FontWeight.bold : FontWeight.normal,
-                              color: manga.viewedChapter != manga.lastChapter ? Colors.green : Colors.black,
+                              fontWeight:
+                                  manga.viewedChapter != manga.lastChapter
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                              color: manga.viewedChapter != manga.lastChapter
+                                  ? Colors.green
+                                  : Colors.black,
                             ),
                           ),
                         ],
@@ -278,13 +341,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                         case 'delete':
                           return _deleteManga(context, manga);
                         case 'download':
-                          _downloadFromViewed(context, manga).then((value) {
-                            _load();
-                            var snackBar = const SnackBar(
-                                content: Text("Finished Downloading"));
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(snackBar);
-                          });
+                          _downloadFromViewed(context, manga);
                         // default:
                         //   throw UnimplementedError();
                       }
@@ -294,7 +351,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                         PopupMenuItem(
                           onTap: () {
                             _chooseCurrentChapter(context, manga).then((value) {
-                                _load();
+                              _load();
                             });
                           },
                           value: 'set_viewed',
@@ -302,7 +359,8 @@ class _FavoritesPage extends State<FavoritesPage> {
                         ),
                         PopupMenuItem(
                           value: 'download',
-                          child: Text('Download${manga.missingDownloads > 0 ? ' (${manga!.missingDownloads})' : ''}' ),
+                          child: Text(
+                              'Download${manga.missingDownloads > 0 ? ' (${manga!.missingDownloads})' : ''}'),
                         ),
                         const PopupMenuItem(
                           value: 'recycle',

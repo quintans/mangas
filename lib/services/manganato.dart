@@ -62,16 +62,11 @@ class Manganato {
       var anchors = document.getElementsByClassName('chapter-name');
       var results = <ChapterResult>[];
 
-      var skip = fromChapterSrc != '';
-      for (var element in anchors.reversed) {
+      for (var element in anchors) {
         var src = element.attributes['href']?.substring(url.length);
 
-        if (skip && fromChapterSrc == src) {
-          skip = false;
-          continue;
-        }
-        if (skip) {
-          continue;
+        if (fromChapterSrc == src) {
+          break;
         }
 
         var title = element.innerHtml;
@@ -89,7 +84,7 @@ class Manganato {
             ChapterResult(title: title, src: src ?? '', uploadedAt: timestamp));
       }
 
-      return results;
+      return List.from(results.reversed);
     } catch (e) {
       throw Exception('Failed to parse $url: $e');
     }

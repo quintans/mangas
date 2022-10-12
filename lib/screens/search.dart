@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:manganato/services/manganato.dart';
 import 'package:manganato/services/persistence.dart';
+import 'package:manganato/utils/utils.dart';
 
 class SearchResultModel {
   final String title;
@@ -203,9 +204,7 @@ class _SearchPage extends State<SearchPage> {
                       ? null
                       : () async {
                           _onBookmark(item);
-                          var snackBar = SnackBar(
-                              content: Text("Bookmarked ${item.title}"));
-                          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                          Utils.snack(context, "Bookmarked ${item.title}");
                         },
                   icon: Icon(disabled
                       ? Icons.bookmark_added_outlined

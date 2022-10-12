@@ -49,6 +49,12 @@ class Manga {
   }
 
   addChapter(Chapter ch) {
+    // check if it already exists
+    for (var c in chapters) {
+      if (c.src == ch.src) {
+        return;
+      }
+    }
     ch.id = chapters.length + 1;
     lastChapterID = ch.id;
     chapters.add(ch);
@@ -58,13 +64,23 @@ class Manga {
     if (viewedChapterID <= 0) {
       return null;
     }
-    return chapters[viewedChapterID -1];
+    return chapters[viewedChapterID - 1];
   }
 
   List<Chapter> getChaptersToDownload() {
     List<Chapter> chs = [];
-    for (var i = viewedChapterID -1; i < chapters.length; i++) {
+    for (var i = viewedChapterID - 1; i < chapters.length; i++) {
       if (!chapters[i].downloaded) {
+        chs.add(chapters[i]);
+      }
+    }
+    return chs;
+  }
+
+  List<Chapter> getChaptersToDiscard() {
+    List<Chapter> chs = [];
+    for (var i = 0; i < viewedChapterID - 1; i++) {
+      if (chapters[i].downloaded) {
         chs.add(chapters[i]);
       }
     }
@@ -159,6 +175,12 @@ class Chapter {
   void markDownloaded(int count) {
     downloaded = true;
     imgCnt = count;
+    _dirty = true;
+  }
+
+  void discarded() {
+    downloaded = false;
+    imgCnt = 0;
     _dirty = true;
   }
 
