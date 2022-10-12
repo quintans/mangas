@@ -42,6 +42,7 @@ class _FavoritesPage extends State<FavoritesPage> {
   Future<Chapter?> _chooseCurrentChapter(
       BuildContext context, MangaView mangaView) async {
     var manga = await DatabaseHelper.db.getManga(mangaView.id);
+
     return showDialog<Chapter>(
         context: context,
         builder: (context) {
@@ -108,118 +109,93 @@ class _FavoritesPage extends State<FavoritesPage> {
         });
   }
 
-  _confirmDownload(MangaView mangaView) async {
-    if (mangaView.missingDownloads <= _downloadThreshold) {
-      _downloadFromBookmarked(mangaView);
+  _confirmAllDownload() async {
+    var missingDownloads = 0;
+    for (var m in mangas) {
+      missingDownloads += m.missingDownloads;
+    }
+    if (missingDownloads <= _downloadThreshold) {
+      _downloadAllMissingChaptersFromBookmarked(missingDownloads);
       return;
     }
 
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Download?"),
-          content: Text(
-              "You will be downloading ${mangaView.missingDownloads} chapters.\nWould you like to proceed?"),
-          actions: <Widget>[
-            TextButton(
-              style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
-              ),
-              child: const Text('CANCEL'),
-              onPressed: () {
-                setState(() {
-                  Navigator.pop(context);
-                });
-              },
-            ),
-            TextButton(
-              style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
-              ),
-              child: const Text('OK'),
-              onPressed: () {
-                setState(() {
-                  Navigator.pop(context);
-                });
-                _downloadFromBookmarked(mangaView);
-              },
-            ),
-          ],
-        );
-      },
-    );
+    _confirm(
+        "You will be downloading $missingDownloads chapters.\nWould you like to proceed?",
+        () {
+      _downloadAllMissingChaptersFromBookmarked(missingDownloads);
+    });
   }
 
-  _downloadFromBookmarked(MangaView view) async {
+  _downloadAllMissingChaptersFromBookmarked(int missingDownloads) async {
     var snack = Snack(context: context);
     final ProgressDialog pd = ProgressDialog(context: context);
 
-    var manga = await DatabaseHelper.db.getManga(view.id);
-    var chapters = manga!.getChaptersToDownload();
-
-    pd.show(max: chapters.length, msg: 'Chapter Downloading...');
-    try {
-      var cnt = 0;
-      for (var ch in chapters) {
-        pd.update(value: ++cnt);
-        var imgs = await Manganato.chapterImages(manga.src, ch.src);
-        List<Future<File>> futures = [];
-        for (var i = 0; i < imgs.length; i++) {
-          var f = MyFS.downloadChapterImage(manga.src, ch.src, i, imgs[i]);
-          futures.add(f);
-        }
-        await Future.wait(futures);
-        ch.markDownloaded(imgs.length);
-        DatabaseHelper.db.updateManga(manga);
-      }
-    } finally {
-      pd.close();
+    var mangas = await DatabaseHelper.db.getMangas();
+    pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
+    var count = 0;
+    for (var m in mangas) {
+      count += await _downloadChapters(pd, m, count);
     }
+
     await _load();
     snack.show("Finished Downloading");
   }
 
+  _confirmDownload(MangaView mangaView) async {
+    if (mangaView.missingDownloads <= _downloadThreshold) {
+      _downloadMissingChaptersFromBookmarked(mangaView.id);
+      return;
+    }
+
+    _confirm(
+        "You will be downloading ${mangaView.missingDownloads} chapters.\nWould you like to proceed?",
+        () {
+      _downloadMissingChaptersFromBookmarked(mangaView.id);
+    });
+  }
+
+  _downloadMissingChaptersFromBookmarked(int mangaID) async {
+    var snack = Snack(context: context);
+    final ProgressDialog pd = ProgressDialog(context: context);
+
+    var manga = await DatabaseHelper.db.getManga(mangaID);
+    var chapters = manga!.getChaptersToDownload();
+    pd.show(max: chapters.length, msg: 'Chapter Downloading...');
+    await _downloadChapters(pd, manga, 0);
+    pd.close();
+
+    await _load();
+    snack.show("Finished Downloading");
+  }
+
+  Future<int> _downloadChapters(
+      ProgressDialog pd, Manga manga, int count) async {
+    var chapters = manga.getChaptersToDownload();
+
+    for (var ch in chapters) {
+      pd.update(value: ++count);
+      var imgs = await Manganato.chapterImages(ch.src);
+      List<Future<File>> futures = [];
+      for (var i = 0; i < imgs.length; i++) {
+        var subDir = ch.src.split('/');
+        var f = MyFS.downloadChapterImages(
+            subDir[subDir.length - 2], subDir.last, i, imgs[i]);
+        futures.add(f);
+      }
+      await Future.wait(futures);
+      ch.markDownloaded(imgs.length);
+      DatabaseHelper.db.updateManga(manga);
+    }
+    return chapters.length;
+  }
+
   _deleteManga(BuildContext context, MangaView mangaView) async {
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete?"),
-          content: Text("Would you like to delete ${mangaView.title}?"),
-          actions: <Widget>[
-            TextButton(
-              style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
-              ),
-              child: const Text('CANCEL'),
-              onPressed: () {
-                setState(() {
-                  Navigator.pop(context);
-                });
-              },
-            ),
-            TextButton(
-              style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
-              ),
-              child: const Text('OK'),
-              onPressed: () {
-                DatabaseHelper.db.deleteManga(mangaView.id);
-                Navigator.pop(context);
-                setState(() {
-                  _load().then((value) => MyFS.deleteManga(mangaView.src));
-                });
-              },
-            ),
-          ],
-        );
-      },
-    );
+    _confirm("Would you like to delete ${mangaView.title}?", () {
+      DatabaseHelper.db.deleteManga(mangaView.id);
+      setState(() {
+        _load().then((value) => MyFS.deleteManga(mangaView.src));
+      });
+    });
   }
 
   _lookForNewChapters() async {
@@ -316,6 +292,9 @@ class _FavoritesPage extends State<FavoritesPage> {
               onPressed: () => _lookForNewChapters(),
               icon: const Icon(Icons.refresh)),
           IconButton(
+              onPressed: () => _confirmAllDownload(),
+              icon: const Icon(Icons.download)),
+          IconButton(
               onPressed: () => _scrubAllMangas(),
               icon: const Icon(Icons.recycling)),
         ],
@@ -328,6 +307,7 @@ class _FavoritesPage extends State<FavoritesPage> {
         ),
         itemBuilder: (context, index) {
           var manga = mangas[index];
+          var subDir = manga.src.split('/').last;
           return InkWell(
               onTap: () => Navigator.of(context)
                   .push(MaterialPageRoute(
@@ -341,7 +321,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                     width: 4,
                   ),
                   FutureBuilder<File>(
-                    future: MyFS.loadMangaCover(manga.src, manga.img),
+                    future: MyFS.loadMangaCover(subDir, manga.img),
                     builder:
                         (BuildContext context, AsyncSnapshot<File> snapshot) {
                       if (snapshot.hasData) {
@@ -472,6 +452,43 @@ class _FavoritesPage extends State<FavoritesPage> {
         tooltip: 'Add new Manga',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+
+  _confirm(String message, Function okFunc) async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Confirm"),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
+              ),
+              child: const Text('CANCEL'),
+              onPressed: () {
+                setState(() {
+                  Navigator.pop(context);
+                });
+              },
+            ),
+            TextButton(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
+              ),
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.pop(context);
+                okFunc();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

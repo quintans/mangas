@@ -32,7 +32,7 @@ class MyFS {
     return downloadMangaCover(src, img);
   }
 
-  static Future<File> downloadChapterImage(
+  static Future<File> downloadChapterImages(
       String mangaSrc, String chapterSrc, int index, String img) async {
     var res = await http.get(
       Uri.parse(img),

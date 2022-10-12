@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 class Manganato {
   static const rootURL = 'https://manganato.com';
-  static const readerURL = 'https://readmanganato.com';
   static const String searchPath = "/search/story";
 
   static Future<List<SearchResult>> search(String query) async {
@@ -26,7 +25,6 @@ class Manganato {
         var img = element.getElementsByTagName('img');
         var attrs = img[0].attributes;
         var src = img[0].parent?.attributes['href'];
-        src = src?.substring(readerURL.length);
 
         var rightElement = element.getElementsByClassName('item-right')[0];
         var lastChapter = rightElement.children[1].innerHtml;
@@ -48,11 +46,10 @@ class Manganato {
 
   static Future<List<ChapterResult>> chapters(
       String mangaSrc, String fromChapterSrc) async {
-    var url = '$readerURL$mangaSrc';
 
-    final response = await http.Client().get(Uri.parse(url));
+    final response = await http.Client().get(Uri.parse(mangaSrc));
     if (response.statusCode != 200) {
-      throw Exception('Failed to load $url: HTTP ${response.statusCode}');
+      throw Exception('Failed to load $mangaSrc: HTTP ${response.statusCode}');
     }
 
     var document = parser.parse(response.body);
@@ -61,7 +58,7 @@ class Manganato {
       var results = <ChapterResult>[];
 
       for (var element in anchors) {
-        var src = element.attributes['href']?.substring(url.length);
+        var src = element.attributes['href'];
 
         if (fromChapterSrc == src) {
           break;
@@ -84,17 +81,14 @@ class Manganato {
 
       return List.from(results.reversed);
     } catch (e) {
-      throw Exception('Failed to parse $url: $e');
+      throw Exception('Failed to parse $mangaSrc: $e');
     }
   }
 
-  static Future<List<String>> chapterImages(
-      String mangaSrc, String chapterSrc) async {
-    var url = '$readerURL$mangaSrc$chapterSrc';
-
-    final response = await http.Client().get(Uri.parse(url));
+  static Future<List<String>> chapterImages(String chapterSrc) async {
+    final response = await http.Client().get(Uri.parse(chapterSrc));
     if (response.statusCode != 200) {
-      throw Exception('Failed to load $url: HTTP ${response.statusCode}');
+      throw Exception('Failed to load $chapterSrc: HTTP ${response.statusCode}');
     }
 
     var document = parser.parse(response.body);
@@ -112,7 +106,7 @@ class Manganato {
 
       return results;
     } catch (e) {
-      throw Exception('Failed to parse $url: $e');
+      throw Exception('Failed to parse $chapterSrc: $e');
     }
   }
 }
