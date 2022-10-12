@@ -214,7 +214,8 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                     : 3 * _bottomNavBarHeight),
             itemCount: chapter?.imgCnt ?? 0,
             itemBuilder: (context, index) {
-              return Image.file(MyFS.loadChapterImage(manga!.src, chapter!.src, index));
+              var subDir = chapter!.src.split('/');
+              return Image.file(MyFS.loadChapterImage(subDir[subDir.length - 2], subDir.last, index));
             },
             controller: _controller,
           )),
