@@ -1,4 +1,4 @@
-package pt.quintans.manganato
+package pt.quintans.mangas
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="pt.quintans.manganato">
+    package="pt.quintans.mangas">
     <uses-permission android:name="android.permission.INTERNET" />
    <application
-        android:label="manganato"
+        android:label="mangas"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

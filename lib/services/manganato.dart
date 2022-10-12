@@ -1,6 +1,4 @@
-import 'dart:io';
-
-import 'package:manganato/models/remote.dart';
+import 'package:mangas/models/remote.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -35,9 +33,9 @@ class Manganato {
         var updated = rightElement.children[4].innerHtml;
 
         results.add(SearchResult(
-            title: attrs?["alt"] ?? '',
+            title: attrs["alt"] ?? '',
             lastChapter: lastChapter,
-            img: attrs?["src"] ?? '',
+            img: attrs["src"] ?? '',
             src: src ?? '',
             updatedDate: updated));
       }

@@ -1,4 +1,4 @@
-import 'package:manganato/models/persistence.dart';
+import 'package:mangas/models/persistence.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 

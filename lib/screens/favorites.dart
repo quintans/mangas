@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:manganato/services/filesystem.dart';
-import 'package:manganato/services/manganato.dart';
-import 'package:manganato/services/persistence.dart';
-import 'package:manganato/utils/utils.dart';
+import 'package:mangas/services/filesystem.dart';
+import 'package:mangas/services/manganato.dart';
+import 'package:mangas/services/persistence.dart';
+import 'package:mangas/utils/utils.dart';
 import './search.dart';
 import './reader.dart';
 import '../models/persistence.dart';
@@ -19,6 +19,8 @@ class FavoritesPage extends StatefulWidget {
 }
 
 class _FavoritesPage extends State<FavoritesPage> {
+  static const int _downloadThreshold = 10;
+
   List<MangaView> mangas = [];
 
   @override
@@ -106,7 +108,52 @@ class _FavoritesPage extends State<FavoritesPage> {
         });
   }
 
-  Future<void> _downloadFromBookmarked(BuildContext context, MangaView view) async {
+  _confirmDownload(MangaView mangaView) async {
+    if (mangaView.missingDownloads <= _downloadThreshold) {
+      _downloadFromBookmarked(mangaView);
+      return;
+    }
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Download?"),
+          content: Text(
+              "You will be downloading ${mangaView.missingDownloads} chapters.\nWould you like to proceed?"),
+          actions: <Widget>[
+            TextButton(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
+              ),
+              child: const Text('CANCEL'),
+              onPressed: () {
+                setState(() {
+                  Navigator.pop(context);
+                });
+              },
+            ),
+            TextButton(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
+              ),
+              child: const Text('OK'),
+              onPressed: () {
+                setState(() {
+                  Navigator.pop(context);
+                });
+                _downloadFromBookmarked(mangaView);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  _downloadFromBookmarked(MangaView view) async {
     var snack = Snack(context: context);
     final ProgressDialog pd = ProgressDialog(context: context);
 
@@ -224,7 +271,7 @@ class _FavoritesPage extends State<FavoritesPage> {
       snack.show('Discarded $count chapter(s)');
     }
   }
-  
+
   Future<int> _scrubChapters(Manga manga) async {
     var chapters = manga.getChaptersToDiscard();
     for (var c in chapters) {
@@ -265,8 +312,12 @@ class _FavoritesPage extends State<FavoritesPage> {
         title: const Text(title),
         actions: [
           // Navigate to the Search Screen
-          IconButton(onPressed: () => _lookForNewChapters(), icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: () => _scrubAllMangas(), icon: const Icon(Icons.recycling)),
+          IconButton(
+              onPressed: () => _lookForNewChapters(),
+              icon: const Icon(Icons.refresh)),
+          IconButton(
+              onPressed: () => _scrubAllMangas(),
+              icon: const Icon(Icons.recycling)),
         ],
       ),
       body: ListView.separated(
@@ -348,9 +399,12 @@ class _FavoritesPage extends State<FavoritesPage> {
                                   manga.bookmarkedChapter != manga.lastChapter
                                       ? FontWeight.bold
                                       : FontWeight.normal,
-                              color: manga.bookmarkedChapter != manga.lastChapter
-                                  ? (manga.missingDownloads > 0 ? Colors.orange : Colors.green)
-                                  : Colors.black,
+                              color:
+                                  manga.bookmarkedChapter != manga.lastChapter
+                                      ? (manga.missingDownloads > 0
+                                          ? Colors.orange
+                                          : Colors.green)
+                                      : Colors.black,
                             ),
                           ),
                         ],
@@ -371,7 +425,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                           _deleteManga(context, manga);
                           break;
                         case 'download':
-                          _downloadFromBookmarked(context, manga);
+                          _confirmDownload(manga);
                           break;
                         case 'set_bookmarked':
                           _chooseCurrentChapter(context, manga).then((value) {
@@ -394,7 +448,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                         PopupMenuItem(
                           value: 'download',
                           child: Text(
-                              'Download${manga.missingDownloads > 0 ? ' (${manga!.missingDownloads})' : ''}'),
+                              'Download${manga.missingDownloads > 0 ? ' (${manga.missingDownloads})' : ''}'),
                         ),
                         const PopupMenuItem(
                           value: 'recycle',

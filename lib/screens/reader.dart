@@ -2,10 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:manganato/models/persistence.dart';
-import 'package:manganato/services/filesystem.dart';
-import 'package:manganato/services/persistence.dart';
-import 'package:path/path.dart';
+import 'package:mangas/models/persistence.dart';
+import 'package:mangas/services/filesystem.dart';
+import 'package:mangas/services/persistence.dart';
 
 class ReaderPage extends StatefulWidget {
   final int mangaID;
@@ -215,26 +214,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                     : 3 * _bottomNavBarHeight),
             itemCount: chapter?.imgCnt ?? 0,
             itemBuilder: (context, index) {
-              return FutureBuilder<File>(
-                future: MyFS.loadChapterImage(manga!.src, chapter!.src, index),
-                builder: (BuildContext context, AsyncSnapshot<File> snapshot) {
-                  if (snapshot.hasData) {
-                    return Image.file(snapshot.requireData);
-                  } else if (snapshot.hasError) {
-                    return Image.asset(
-                      'images/error.png',
-                      height: 90,
-                      width: 61,
-                    );
-                  } else {
-                    return Image.asset(
-                      'images/hourglass.png',
-                      height: 90,
-                      width: 61,
-                    );
-                  }
-                },
-              );
+              return Image.file(MyFS.loadChapterImage(manga!.src, chapter!.src, index));
             },
             controller: _controller,
           )),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:manganato/models/persistence.dart';
-import 'package:manganato/services/filesystem.dart';
+import 'package:mangas/models/persistence.dart';
+import 'package:mangas/services/filesystem.dart';
 import 'dart:async';
 
-import 'package:manganato/services/manganato.dart';
-import 'package:manganato/services/persistence.dart';
-import 'package:manganato/utils/utils.dart';
+import 'package:mangas/services/manganato.dart';
+import 'package:mangas/services/persistence.dart';
+import 'package:mangas/utils/utils.dart';
 
 class SearchResultModel {
   final String title;

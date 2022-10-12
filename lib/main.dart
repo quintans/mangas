@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:manganato/services/filesystem.dart';
-import 'package:manganato/services/persistence.dart';
+import 'package:mangas/services/filesystem.dart';
 import './screens/favorites.dart';
 
 void main() async {
@@ -20,7 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Manganato Offline',
+      title: 'Mangas Offline',
       theme: ThemeData(
         primarySwatch: Colors.indigo,
       ),

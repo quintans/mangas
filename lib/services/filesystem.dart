@@ -48,8 +48,8 @@ class MyFS {
     return file.writeAsBytes(res.bodyBytes);
   }
 
-  static Future<File> loadChapterImage(
-      String mangaSrc, String chapterSrc, int index) async {
+  static File loadChapterImage(
+      String mangaSrc, String chapterSrc, int index) {
     var idx = index.toString().padLeft(3, '0');
     File file = File(
         join([mangasFolder(), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
