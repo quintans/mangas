@@ -3,7 +3,7 @@ class Manga {
   final String title;
   final String img;
   final String src;
-  int viewedChapterID;
+  int bookmarkedChapterID;
   int lastChapterID;
   final List<Chapter> chapters;
 
@@ -12,7 +12,7 @@ class Manga {
     required this.title,
     required this.img,
     required this.src,
-    required this.viewedChapterID,
+    required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
   }) {
@@ -29,7 +29,7 @@ class Manga {
     required this.title,
     required this.img,
     required this.src,
-    required this.viewedChapterID,
+    required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
   });
@@ -39,7 +39,7 @@ class Manga {
       'title': title,
       'img': img,
       'src': src,
-      'viewed_chapter_id': viewedChapterID,
+      'bookmarked_chapter_id': bookmarkedChapterID,
       'last_chapter_id': lastChapterID,
     };
     if (id != 0) {
@@ -61,15 +61,15 @@ class Manga {
   }
 
   Chapter? getBookmarkedChapter() {
-    if (viewedChapterID <= 0) {
+    if (bookmarkedChapterID <= 0) {
       return null;
     }
-    return chapters[viewedChapterID - 1];
+    return chapters[bookmarkedChapterID - 1];
   }
 
   List<Chapter> getChaptersToDownload() {
     List<Chapter> chs = [];
-    for (var i = viewedChapterID - 1; i < chapters.length; i++) {
+    for (var i = bookmarkedChapterID - 1; i < chapters.length; i++) {
       if (!chapters[i].downloaded) {
         chs.add(chapters[i]);
       }
@@ -79,7 +79,7 @@ class Manga {
 
   List<Chapter> getChaptersToDiscard() {
     List<Chapter> chs = [];
-    for (var i = 0; i < viewedChapterID - 1; i++) {
+    for (var i = 0; i < bookmarkedChapterID - 1; i++) {
       if (chapters[i].downloaded) {
         chs.add(chapters[i]);
       }
@@ -98,7 +98,7 @@ class Manga {
   Chapter moveToPreviousChapter(Chapter chapter) {
     if (hasPreviousChapter(chapter)) {
       var ch = chapters[chapter.id - 2];
-      viewedChapterID = ch.id;
+      bookmarkedChapterID = ch.id;
       return ch;
     }
     return chapter;
@@ -111,18 +111,18 @@ class Manga {
   Chapter moveToNextChapter(Chapter chapter) {
     if (hasNextChapter(chapter)) {
       var ch = chapters[chapter.id];
-      viewedChapterID = ch.id;
+      bookmarkedChapterID = ch.id;
       return ch;
     }
     return chapter;
   }
 
   bookmark(Chapter chapter) {
-    viewedChapterID = chapter.id;
+    bookmarkedChapterID = chapter.id;
   }
 
   bool isBookmarked(Chapter chapter) {
-    return viewedChapterID == chapter.id;
+    return bookmarkedChapterID == chapter.id;
   }
 }
 
@@ -195,7 +195,7 @@ class MangaView {
   final String title;
   final String img;
   final String src;
-  String viewedChapter;
+  String bookmarkedChapter;
   final String lastChapter;
   final DateTime lastUploadedAt;
   final int missingDownloads;
@@ -205,7 +205,7 @@ class MangaView {
     required this.title,
     required this.img,
     required this.src,
-    required this.viewedChapter,
+    required this.bookmarkedChapter,
     required this.lastChapter,
     required this.lastUploadedAt,
     required this.missingDownloads,
@@ -213,6 +213,6 @@ class MangaView {
 
   @override
   String toString() {
-    return 'MangaView{id: $id, title: $title, img: $img, src: $src, viewedChapter: $viewedChapter, lastChapter: $lastChapter, lastUploadedAt: $lastUploadedAt}';
+    return 'MangaView{id: $id, title: $title, img: $img, src: $src, bookmarkedChapter: $bookmarkedChapter, lastChapter: $lastChapter, lastUploadedAt: $lastUploadedAt}';
   }
 }

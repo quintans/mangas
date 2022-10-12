@@ -8,7 +8,7 @@ class DatabaseHelper {
   static const String _mgTitle = 'title';
   static const String _mgImg = 'img';
   static const String _mgSrc = 'src';
-  static const String _mgViewedChapterID = 'viewed_chapter_id';
+  static const String _mgBookmarkedChapterID = 'bookmarked_chapter_id';
   static const String _mgLastChapterID = 'last_chapter_id';
 
   static const String _chTable = 'chapters';
@@ -45,7 +45,7 @@ class DatabaseHelper {
             $_mgTitle TEXT NOT NULL, 
             $_mgImg TEXT, 
             $_mgSrc TEXT NOT NULL, 
-            $_mgViewedChapterID INTEGER, 
+            $_mgBookmarkedChapterID INTEGER, 
             $_mgLastChapterID INTEGER
           )''',
         );
@@ -160,23 +160,23 @@ class DatabaseHelper {
     final db = await database;
     List<MangaView> mangas = [];
     final List<Map<String, Object?>> unread = await db!.rawQuery(
-        '''SELECT m.*, v.$_chTitle AS vw_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
-        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgViewedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
+        '''SELECT m.*, v.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
+        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
-           LEFT JOIN $_chTable v ON v.$_chMangaID = m.$_mgID AND v.$_chID = m.$_mgViewedChapterID
+           LEFT JOIN $_chTable v ON v.$_chMangaID = m.$_mgID AND v.$_chID = m.$_mgBookmarkedChapterID
            LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID
-           WHERE m.$_mgViewedChapterID <> m.$_mgLastChapterID
+           WHERE m.$_mgBookmarkedChapterID <> m.$_mgLastChapterID
            ORDER BY c.$_chUploadedAt DESC'''
     );
     for (var e in unread) {
       mangas.add(_toMangaView(e));
     }
     final List<Map<String, Object?>> read = await db.rawQuery(
-        '''SELECT m.*, c.$_chTitle AS vw_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
-        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgViewedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
+        '''SELECT m.*, c.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
+        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
            LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID
-           WHERE m.$_mgViewedChapterID = m.$_mgLastChapterID
+           WHERE m.$_mgBookmarkedChapterID = m.$_mgLastChapterID
            ORDER BY c.$_chUploadedAt DESC'''
     );
     for (var e in read) {
@@ -207,7 +207,7 @@ class DatabaseHelper {
       title: m[_mgTitle].toString(),
       img: m[_mgImg].toString(),
       src: m[_mgSrc].toString(),
-      viewedChapterID: m[_mgViewedChapterID] as int,
+      bookmarkedChapterID: m[_mgBookmarkedChapterID] as int,
       lastChapterID: m[_mgLastChapterID] as int,
         chapters: chapters,
     );
@@ -235,7 +235,7 @@ class DatabaseHelper {
       title: e[_mgTitle].toString(),
       img: e[_mgImg].toString(),
       src: e[_mgSrc].toString(),
-      viewedChapter: e['vw_title']?.toString() ?? '',
+      bookmarkedChapter: e['bm_title']?.toString() ?? '',
       lastChapter: e['last_title']?.toString() ?? '',
       lastUploadedAt: at,
       missingDownloads: e['to_download'] as int,

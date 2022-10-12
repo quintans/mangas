@@ -46,7 +46,7 @@ class _FavoritesPage extends State<FavoritesPage> {
           return StatefulBuilder(
             builder: (context, setState) {
               return AlertDialog(
-                title: const Text('Choose viewed chapter'),
+                title: const Text('Choose current chapter'),
                 content: DropdownButton<Chapter>(
                   isExpanded: true,
                   value: manga?.getBookmarkedChapter(),
@@ -90,9 +90,9 @@ class _FavoritesPage extends State<FavoritesPage> {
                       setState(() {
                         DatabaseHelper.db.updateManga(manga!);
                         setState(() {
-                          var viewed = manga.getBookmarkedChapter();
-                          if (viewed != null) {
-                            mangaView.viewedChapter = viewed.title;
+                          var bookmarked = manga.getBookmarkedChapter();
+                          if (bookmarked != null) {
+                            mangaView.bookmarkedChapter = bookmarked.title;
                           }
                         });
                         Navigator.pop(context, manga.getBookmarkedChapter());
@@ -106,7 +106,7 @@ class _FavoritesPage extends State<FavoritesPage> {
         });
   }
 
-  Future<void> _downloadFromViewed(BuildContext context, MangaView view) async {
+  Future<void> _downloadFromBookmarked(BuildContext context, MangaView view) async {
     var snack = Snack(context: context);
     final ProgressDialog pd = ProgressDialog(context: context);
 
@@ -117,6 +117,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     try {
       var cnt = 0;
       for (var ch in chapters) {
+        pd.update(value: ++cnt);
         var imgs = await Manganato.chapterImages(manga.src, ch.src);
         List<Future<File>> futures = [];
         for (var i = 0; i < imgs.length; i++) {
@@ -126,7 +127,6 @@ class _FavoritesPage extends State<FavoritesPage> {
         await Future.wait(futures);
         ch.markDownloaded(imgs.length);
         DatabaseHelper.db.updateManga(manga);
-        pd.update(value: ++cnt);
       }
     } finally {
       pd.close();
@@ -205,25 +205,55 @@ class _FavoritesPage extends State<FavoritesPage> {
     _load();
   }
 
-  _discardChapters() async {
+  _scrubAllMangas() async {
     var snack = Snack(context: context);
 
-    final ProgressDialog pd = ProgressDialog(context: context);
     var mangas = await DatabaseHelper.db.getMangas();
-    pd.show(max: mangas.length, msg: 'Discarding old chapters...');
     var count = 0;
     for (var manga in mangas) {
-      pd.update(value: ++count);
-      var chapters = manga.getChaptersToDiscard();
-      for (var c in chapters) {
-        await MyFS.deleteChapter(manga.src, c.src);
-        c.discarded();
-      }
-      if (chapters.isNotEmpty) {
-        DatabaseHelper.db.updateManga(manga);
-      }
+      count += await _scrubChapters(manga);
     }
-    snack.show('Finished discarding old chapters');
+    snack.show('Discarded $count chapter(s)');
+  }
+
+  _scrubManga(MangaView view) async {
+    var snack = Snack(context: context);
+    var manga = await DatabaseHelper.db.getManga(view.id);
+    if (manga != null) {
+      var count = await _scrubChapters(manga);
+      snack.show('Discarded $count chapter(s)');
+    }
+  }
+  
+  Future<int> _scrubChapters(Manga manga) async {
+    var chapters = manga.getChaptersToDiscard();
+    for (var c in chapters) {
+      await MyFS.deleteChapter(manga.src, c.src);
+      c.discarded();
+    }
+    if (chapters.isNotEmpty) {
+      DatabaseHelper.db.updateManga(manga);
+    }
+    return chapters.length;
+  }
+
+  String _formatDate(MangaView manga) {
+    var now = DateTime.now();
+    var diff = now.difference(manga.lastUploadedAt);
+    if (diff > const Duration(days: 3)) {
+      var formatter = DateFormat('yyyy-MM-dd');
+      return formatter.format(manga.lastUploadedAt);
+    }
+    if (diff > const Duration(hours: 24)) {
+      return '${diff.inDays} day(s)';
+    }
+    if (diff > const Duration(minutes: 60)) {
+      return '${diff.inHours} hour(s)';
+    }
+    if (diff > const Duration(seconds: 60)) {
+      return '${diff.inMinutes} minutes(s)';
+    }
+    return "now";
   }
 
   @override
@@ -236,7 +266,7 @@ class _FavoritesPage extends State<FavoritesPage> {
         actions: [
           // Navigate to the Search Screen
           IconButton(onPressed: () => _lookForNewChapters(), icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: () => _discardChapters(), icon: const Icon(Icons.recycling)),
+          IconButton(onPressed: () => _scrubAllMangas(), icon: const Icon(Icons.recycling)),
         ],
       ),
       body: ListView.separated(
@@ -247,7 +277,6 @@ class _FavoritesPage extends State<FavoritesPage> {
         ),
         itemBuilder: (context, index) {
           var manga = mangas[index];
-          var formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
           return InkWell(
               onTap: () => Navigator.of(context)
                   .push(MaterialPageRoute(
@@ -302,13 +331,13 @@ class _FavoritesPage extends State<FavoritesPage> {
                       ),
                       Row(
                         children: [
-                          const Text('Viewed: '),
-                          Text(manga.viewedChapter),
+                          const Text('Current: '),
+                          Text(manga.bookmarkedChapter),
                         ],
                       ),
                       Row(
                         children: [
-                          const Text('Current: '),
+                          const Text('Last: '),
                           Text(
                             manga.lastChapter +
                                 (manga.missingDownloads > 0
@@ -316,18 +345,18 @@ class _FavoritesPage extends State<FavoritesPage> {
                                     : ''),
                             style: TextStyle(
                               fontWeight:
-                                  manga.viewedChapter != manga.lastChapter
+                                  manga.bookmarkedChapter != manga.lastChapter
                                       ? FontWeight.bold
                                       : FontWeight.normal,
-                              color: manga.viewedChapter != manga.lastChapter
-                                  ? Colors.green
+                              color: manga.bookmarkedChapter != manga.lastChapter
+                                  ? (manga.missingDownloads > 0 ? Colors.orange : Colors.green)
                                   : Colors.black,
                             ),
                           ),
                         ],
                       ),
                       Text(
-                        'Last updated: ${formatter.format(manga.lastUploadedAt)}',
+                        'Last updated: ${_formatDate(manga)}',
                         style: const TextStyle(
                           fontSize: 12,
                           fontStyle: FontStyle.italic,
@@ -339,23 +368,28 @@ class _FavoritesPage extends State<FavoritesPage> {
                     onSelected: (value) async {
                       switch (value) {
                         case 'delete':
-                          return _deleteManga(context, manga);
+                          _deleteManga(context, manga);
+                          break;
                         case 'download':
-                          _downloadFromViewed(context, manga);
+                          _downloadFromBookmarked(context, manga);
+                          break;
+                        case 'set_bookmarked':
+                          _chooseCurrentChapter(context, manga).then((value) {
+                            _load();
+                          });
+                          break;
+                        case 'recycle':
+                          _scrubManga(manga);
+                          break;
                         // default:
                         //   throw UnimplementedError();
                       }
                     },
                     itemBuilder: (context) {
                       return [
-                        PopupMenuItem(
-                          onTap: () {
-                            _chooseCurrentChapter(context, manga).then((value) {
-                              _load();
-                            });
-                          },
-                          value: 'set_viewed',
-                          child: const Text('Select Viewed'),
+                        const PopupMenuItem(
+                          value: 'set_bookmarked',
+                          child: Text('Select Current'),
                         ),
                         PopupMenuItem(
                           value: 'download',

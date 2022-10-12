@@ -118,7 +118,7 @@ class _SearchPage extends State<SearchPage> {
         title: item.title,
         img: item.img,
         src: item.src,
-        viewedChapterID: 1,
+        bookmarkedChapterID: 1,
         lastChapterID: 0,
         chapters: chapters);
     // save image to directory
