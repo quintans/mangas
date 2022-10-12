@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:manganato/models/persistence.dart';
 import 'package:manganato/services/filesystem.dart';
 import 'package:manganato/services/persistence.dart';
+import 'package:path/path.dart';
 
 class ReaderPage extends StatefulWidget {
   final int mangaID;
@@ -100,15 +101,22 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: showBars
-            ? AppBar(
-                toolbarHeight: 120,
-                title: Row(
-                  children: [
-                    Expanded(child: Text(manga?.title ?? '', maxLines: 3,),),
-                    Column(
-                      children: [
-                        DropdownButton<Chapter>(
+      appBar: showBars
+          ? AppBar(
+              toolbarHeight: 100,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    manga?.title ?? '',
+                  ),
+                  const SizedBox(height: 4,),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: DropdownButton<Chapter>(
+                          isExpanded: true,
                           value: chapter,
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
@@ -123,18 +131,25 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                               DatabaseHelper.db.updateManga(manga!);
                             });
                           },
-                          underline: Container(
-                            height: 3,
-                            color: Colors.white,
-                          ),
                           selectedItemBuilder: (BuildContext context) {
                             return manga!
                                 .getChapters()
                                 .reversed
-                                .map<Widget>((Chapter value) {
-                              return Text(
-                                value.title,
-                                style: const TextStyle(color: Colors.white),
+                                .map<Widget>((Chapter chapter) {
+                              return Container(
+                                alignment: Alignment.centerLeft,
+                                constraints:
+                                    const BoxConstraints(minWidth: 100),
+                                child: Text(
+                                  chapter.title,
+                                  style: chapter.isDownloaded()
+                                      ? const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600)
+                                      : const TextStyle(
+                                          color: Colors.grey,
+                                          fontWeight: FontWeight.w600),
+                                ),
                               );
                             }).toList();
                           },
@@ -145,80 +160,84 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                             return DropdownMenuItem(
                               value: chapter,
                               child: Text(chapter.title,
-                                  style: TextStyle(color: chapter.isDownloaded() ? Colors.black : Colors.grey)),
+                                  style: TextStyle(
+                                      color: chapter.isDownloaded()
+                                          ? Colors.black
+                                          : Colors.grey)),
                             );
                           }).toList(),
                         ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back_ios),
-                              onPressed: manga?.hasPreviousChapter(chapter!) ??
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios),
+                          onPressed: manga?.hasPreviousChapter(chapter!) ??
                                   false
-                                  ? () {
-                                setState(() {
-                                  _controller.jumpTo(0);
-                                  chapter =
-                                      manga!.moveToPreviousChapter(chapter!);
-                                  DatabaseHelper.db.updateManga(manga!);
-                                });
-                              }
-                                  : null,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.arrow_forward_ios),
-                              onPressed: manga?.hasNextChapter(chapter!) ?? false
-                                  ? () {
-                                setState(() {
-                                  _controller.jumpTo(0);
-                                  chapter =
-                                      manga!.moveToNextChapter(chapter!);
-                                  DatabaseHelper.db.updateManga(manga!);
-                                });
-                              }
-                                  : null,
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ],
-                ))
-            : null,
-        body: InkWell(
-            onTap: _toggleFullscreen,
-            child: ListView.builder(
-              padding: EdgeInsets.only(
-                  bottom: fullScreen
-                      ? 2 * _bottomNavBarHeight
-                      : 3 * _bottomNavBarHeight),
-              itemCount: chapter?.imgCnt ?? 0,
-              itemBuilder: (context, index) {
-                return FutureBuilder<File>(
-                  future:
-                      MyFS.loadChapterImage(manga!.src, chapter!.src, index),
-                  builder:
-                      (BuildContext context, AsyncSnapshot<File> snapshot) {
-                    if (snapshot.hasData) {
-                      return Image.file(snapshot.requireData);
-                    } else if (snapshot.hasError) {
-                      return Image.asset(
-                        'images/error.png',
-                        height: 90,
-                        width: 61,
-                      );
-                    } else {
-                      return Image.asset(
-                        'images/hourglass.png',
-                        height: 90,
-                        width: 61,
-                      );
-                    }
-                  },
-                );
-              },
-              controller: _controller,
-            )),
+                              ? () {
+                                  setState(() {
+                                    _controller.jumpTo(0);
+                                    chapter =
+                                        manga!.moveToPreviousChapter(chapter!);
+                                    DatabaseHelper.db.updateManga(manga!);
+                                  });
+                                }
+                              : null,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios),
+                          onPressed: manga?.hasNextChapter(chapter!) ?? false
+                              ? () {
+                                  setState(() {
+                                    _controller.jumpTo(0);
+                                    chapter =
+                                        manga!.moveToNextChapter(chapter!);
+                                    DatabaseHelper.db.updateManga(manga!);
+                                  });
+                                }
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ))
+          : null,
+      body: InkWell(
+          onTap: _toggleFullscreen,
+          child: ListView.builder(
+            padding: EdgeInsets.only(
+                bottom: fullScreen
+                    ? 2 * _bottomNavBarHeight
+                    : 3 * _bottomNavBarHeight),
+            itemCount: chapter?.imgCnt ?? 0,
+            itemBuilder: (context, index) {
+              return FutureBuilder<File>(
+                future: MyFS.loadChapterImage(manga!.src, chapter!.src, index),
+                builder: (BuildContext context, AsyncSnapshot<File> snapshot) {
+                  if (snapshot.hasData) {
+                    return Image.file(snapshot.requireData);
+                  } else if (snapshot.hasError) {
+                    return Image.asset(
+                      'images/error.png',
+                      height: 90,
+                      width: 61,
+                    );
+                  } else {
+                    return Image.asset(
+                      'images/hourglass.png',
+                      height: 90,
+                      width: 61,
+                    );
+                  }
+                },
+              );
+            },
+            controller: _controller,
+          )),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _scrollUp();
