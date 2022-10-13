@@ -132,7 +132,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
     var count = 0;
     for (var m in mangas) {
-      count += await _downloadChapters(pd, m, count);
+      count = await _downloadChapters(pd, m, count);
     }
 
     await _load();
@@ -171,7 +171,6 @@ class _FavoritesPage extends State<FavoritesPage> {
     var chapters = manga.getChaptersToDownload();
 
     for (var ch in chapters) {
-      pd.update(value: ++count);
       var imgs = await Manganato.chapterImages(ch.src);
       List<Future<File>> futures = [];
       for (var i = 0; i < imgs.length; i++) {
@@ -182,21 +181,22 @@ class _FavoritesPage extends State<FavoritesPage> {
       }
       await Future.wait(futures);
       ch.markDownloaded(imgs.length);
-      DatabaseHelper.db.updateManga(manga);
+      await DatabaseHelper.db.updateManga(manga);
+      pd.update(value: ++count);
     }
-    return chapters.length;
+    return count;
   }
 
   _deleteManga(BuildContext context, MangaView mangaView) async {
     _confirm("Would you like to delete ${mangaView.title}?", () {
-      DatabaseHelper.db.deleteManga(mangaView.id);
-      setState(() {
-        _load().then((value) => MyFS.deleteManga(mangaView.src));
+      DatabaseHelper.db.deleteManga(mangaView.id).then((value) {
+        var subDir = mangaView.src.split('/').last;
+        _load().then((value) => MyFS.deleteManga(subDir));
       });
     });
   }
 
-  _lookForNewChapters() async {
+  Future<void> _lookForNewChapters() async {
     var snack = Snack(context: context);
     final ProgressDialog pd = ProgressDialog(context: context);
 
@@ -223,7 +223,7 @@ class _FavoritesPage extends State<FavoritesPage> {
       pd.update(value: ++count);
     }
     snack.show('Finished looking for new chapters');
-    _load();
+    return _load();
   }
 
   _scrubAllMangas() async {
@@ -249,7 +249,8 @@ class _FavoritesPage extends State<FavoritesPage> {
   Future<int> _scrubChapters(Manga manga) async {
     var chapters = manga.getChaptersToDiscard();
     for (var c in chapters) {
-      await MyFS.deleteChapter(manga.src, c.src);
+      var subDir = c.src.split('/');
+      await MyFS.deleteChapter(subDir[subDir.length - 2], subDir.last);
       c.discarded();
     }
     if (chapters.isNotEmpty) {
@@ -363,17 +364,18 @@ class _FavoritesPage extends State<FavoritesPage> {
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Row(
                         children: [
                           const Text('Current: '),
-                          Text(manga.bookmarkedChapter),
+                          Expanded(child: Text(manga.bookmarkedChapter, overflow: TextOverflow.ellipsis,),),
                         ],
                       ),
                       Row(
                         children: [
                           const Text('Last: '),
-                          Text(
+                          Expanded(child:Text(
                             manga.lastChapter +
                                 (manga.missingDownloads > 0
                                     ? ' (${manga.missingDownloads})'
@@ -390,7 +392,8 @@ class _FavoritesPage extends State<FavoritesPage> {
                                           : Colors.green)
                                       : Colors.black,
                             ),
-                          ),
+                            overflow: TextOverflow.ellipsis,
+                          ),),
                         ],
                       ),
                       Text(

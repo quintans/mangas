@@ -116,7 +116,7 @@ class DatabaseHelper {
     });
   }
 
-  deleteManga(int mangaID) async {
+  Future<void> deleteManga(int mangaID) async {
     final db = await database;
     await db!.transaction((txn) async {
       txn.delete(
