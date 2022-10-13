@@ -99,6 +99,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
+    var subDir = chapter!.src.split('/');
     return Scaffold(
       appBar: showBars
           ? AppBar(
@@ -120,9 +121,10 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                     : 3 * _bottomNavBarHeight),
             itemCount: chapter?.imgCnt ?? 0,
             itemBuilder: (context, index) {
-              var subDir = chapter!.src.split('/');
               return Image.file(MyFS.loadChapterImage(
-                  subDir[subDir.length - 2], subDir.last, index));
+                  subDir[subDir.length - 2], subDir.last, index),
+                fit: BoxFit.fitWidth,
+              );
             },
             controller: _controller,
           )),
