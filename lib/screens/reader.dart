@@ -112,7 +112,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
             ))
           : null,
       body: InkWell(
-          onTap: _toggleFullscreen,
+          onDoubleTap: _toggleFullscreen,
           child: ListView.builder(
             padding: EdgeInsets.only(
                 bottom: fullScreen
@@ -138,6 +138,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
               color: Colors.indigo,
               child: Row(
                 children: [
+                  const SizedBox(width: 4),
                   Expanded(
                     flex: 6,
                     child: DropdownButton<Chapter>(
@@ -191,7 +192,6 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                     ),
                   ),
                   Expanded(
-                    flex: 1,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back_ios),
                       onPressed: manga?.hasPreviousChapter(chapter!) ?? false
@@ -207,7 +207,6 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                     ),
                   ),
                   Expanded(
-                    flex: 1,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_forward_ios),
                       onPressed: manga?.hasNextChapter(chapter!) ?? false
