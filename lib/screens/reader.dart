@@ -102,108 +102,14 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
     return Scaffold(
       appBar: showBars
           ? AppBar(
-              toolbarHeight: 100,
               title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    manga?.title ?? '',
-                  ),
-                  const SizedBox(height: 4,),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: DropdownButton<Chapter>(
-                          isExpanded: true,
-                          value: chapter,
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.white,
-                          ),
-                          onChanged: (Chapter? newValue) {
-                            setState(() {
-                              chapter = newValue;
-                              manga?.bookmark(chapter!);
-                              DatabaseHelper.db.updateManga(manga!);
-                            });
-                          },
-                          selectedItemBuilder: (BuildContext context) {
-                            return manga!
-                                .getChapters()
-                                .reversed
-                                .map<Widget>((Chapter chapter) {
-                              return Container(
-                                alignment: Alignment.centerLeft,
-                                constraints:
-                                    const BoxConstraints(minWidth: 100),
-                                child: Text(
-                                  chapter.title,
-                                  style: chapter.isDownloaded()
-                                      ? const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600)
-                                      : const TextStyle(
-                                          color: Colors.grey,
-                                          fontWeight: FontWeight.w600),
-                                ),
-                              );
-                            }).toList();
-                          },
-                          items: manga
-                              ?.getChapters()
-                              .reversed
-                              .map((Chapter chapter) {
-                            return DropdownMenuItem(
-                              value: chapter,
-                              child: Text(chapter.title,
-                                  style: TextStyle(
-                                      color: chapter.isDownloaded()
-                                          ? Colors.black
-                                          : Colors.grey)),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios),
-                          onPressed: manga?.hasPreviousChapter(chapter!) ??
-                                  false
-                              ? () {
-                                  setState(() {
-                                    _controller.jumpTo(0);
-                                    chapter =
-                                        manga!.moveToPreviousChapter(chapter!);
-                                    DatabaseHelper.db.updateManga(manga!);
-                                  });
-                                }
-                              : null,
-                        ),
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios),
-                          onPressed: manga?.hasNextChapter(chapter!) ?? false
-                              ? () {
-                                  setState(() {
-                                    _controller.jumpTo(0);
-                                    chapter =
-                                        manga!.moveToNextChapter(chapter!);
-                                    DatabaseHelper.db.updateManga(manga!);
-                                  });
-                                }
-                              : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ))
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  manga?.title ?? '',
+                ),
+              ],
+            ))
           : null,
       body: InkWell(
           onTap: _toggleFullscreen,
@@ -215,7 +121,8 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
             itemCount: chapter?.imgCnt ?? 0,
             itemBuilder: (context, index) {
               var subDir = chapter!.src.split('/');
-              return Image.file(MyFS.loadChapterImage(subDir[subDir.length - 2], subDir.last, index));
+              return Image.file(MyFS.loadChapterImage(
+                  subDir[subDir.length - 2], subDir.last, index));
             },
             controller: _controller,
           )),
@@ -226,6 +133,98 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
         backgroundColor: Colors.blueGrey.withOpacity(0.3),
         child: const Icon(Icons.arrow_upward),
       ),
+      bottomNavigationBar: showBars
+          ? BottomAppBar(
+              color: Colors.indigo,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: DropdownButton<Chapter>(
+                      isExpanded: true,
+                      value: chapter,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.white,
+                      ),
+                      onChanged: (Chapter? newValue) {
+                        setState(() {
+                          chapter = newValue;
+                          manga?.bookmark(chapter!);
+                          DatabaseHelper.db.updateManga(manga!);
+                        });
+                      },
+                      selectedItemBuilder: (BuildContext context) {
+                        return manga!
+                            .getChapters()
+                            .reversed
+                            .map<Widget>((Chapter chapter) {
+                          return Container(
+                            alignment: Alignment.centerLeft,
+                            constraints: const BoxConstraints(minWidth: 100),
+                            child: Text(
+                              chapter.title,
+                              style: chapter.isDownloaded()
+                                  ? const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600)
+                                  : const TextStyle(
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w600),
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items:
+                          manga?.getChapters().reversed.map((Chapter chapter) {
+                        return DropdownMenuItem(
+                          value: chapter,
+                          child: Text(chapter.title,
+                              style: TextStyle(
+                                  color: chapter.isDownloaded()
+                                      ? Colors.black
+                                      : Colors.grey)),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios),
+                      onPressed: manga?.hasPreviousChapter(chapter!) ?? false
+                          ? () {
+                              setState(() {
+                                _controller.jumpTo(0);
+                                chapter =
+                                    manga!.moveToPreviousChapter(chapter!);
+                                DatabaseHelper.db.updateManga(manga!);
+                              });
+                            }
+                          : null,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios),
+                      onPressed: manga?.hasNextChapter(chapter!) ?? false
+                          ? () {
+                              setState(() {
+                                _controller.jumpTo(0);
+                                chapter = manga!.moveToNextChapter(chapter!);
+                                DatabaseHelper.db.updateManga(manga!);
+                              });
+                            }
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 }
