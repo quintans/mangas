@@ -94,9 +94,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                         DatabaseHelper.db.updateManga(manga!);
                         setState(() {
                           var bookmarked = manga.getBookmarkedChapter();
-                          if (bookmarked != null) {
-                            mangaView.bookmarkedChapter = bookmarked.title;
-                          }
+                          mangaView.bookmarkedChapter = bookmarked.title;
                         });
                         Navigator.pop(context, manga.getBookmarkedChapter());
                       });
@@ -309,10 +307,16 @@ class _FavoritesPage extends State<FavoritesPage> {
           var manga = mangas[index];
           var subDir = manga.src.split('/').last;
           return InkWell(
-              onTap: () => Navigator.of(context)
-                  .push(MaterialPageRoute(
-                      builder: (_) => ReaderPage(mangaID: manga.id)))
-                  .then((value) => _load()),
+              onTap: () {
+                DatabaseHelper.db
+                    .getManga(manga.id)
+                    .then((value) => Navigator.of(context)
+                        .push(MaterialPageRoute(
+                            builder: (_) => ReaderPage(
+                                  manga: value!,
+                                )))
+                        .then((value) => _load()));
+              },
               child: IntrinsicHeight(
                   child: Row(
                 mainAxisSize: MainAxisSize.max,

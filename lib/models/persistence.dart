@@ -60,10 +60,7 @@ class Manga {
     chapters.add(ch);
   }
 
-  Chapter? getBookmarkedChapter() {
-    if (bookmarkedChapterID <= 0) {
-      return null;
-    }
+  Chapter getBookmarkedChapter() {
     return chapters[bookmarkedChapterID - 1];
   }
 

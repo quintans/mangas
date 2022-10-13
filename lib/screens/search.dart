@@ -121,7 +121,7 @@ class _SearchPage extends State<SearchPage> {
         bookmarkedChapterID: 1,
         lastChapterID: 0,
         chapters: chapters);
-    var subDir = manga.src!.split('/').last;
+    var subDir = manga.src.split('/').last;
     // save image to directory
     await MyFS.downloadMangaCover(subDir, manga.img);
     await DatabaseHelper.db.insertManga(manga);

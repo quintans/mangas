@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangas/models/persistence.dart';
@@ -7,11 +5,11 @@ import 'package:mangas/services/filesystem.dart';
 import 'package:mangas/services/persistence.dart';
 
 class ReaderPage extends StatefulWidget {
-  final int mangaID;
+  final Manga manga;
 
   const ReaderPage({
     Key? key,
-    required this.mangaID,
+    required this.manga,
   }) : super(key: key);
 
   @override
@@ -26,9 +24,6 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
 
   final _controller = ScrollController();
 
-  Manga? manga;
-  Chapter? chapter;
-
   @override
   void initState() {
     super.initState();
@@ -41,13 +36,6 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
           showBars = atBottom;
         });
       }
-    });
-
-    DatabaseHelper.db.getManga(widget.mangaID).then((value) {
-      setState(() {
-        manga = value;
-        chapter = manga!.getBookmarkedChapter();
-      });
     });
 
     fullScreen = true;
@@ -99,7 +87,18 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    var subDir = chapter!.src.split('/');
+    var manga = widget.manga;
+    var chapter = manga.getBookmarkedChapter();
+    var subDir = chapter.src.split('/');
+    List<Widget> widgets = [];
+    for(var i =0; i < chapter.imgCnt; i++) {
+      var w = Image.file(MyFS.loadChapterImage(
+          subDir[subDir.length - 2], subDir.last, i),
+        fit: BoxFit.fitWidth,
+      );
+      widgets.add(w);
+    }
+
     return Scaffold(
       appBar: showBars
           ? AppBar(
@@ -107,26 +106,20 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  manga?.title ?? '',
+                  manga.title,
                 ),
               ],
             ))
           : null,
       body: InkWell(
           onDoubleTap: _toggleFullscreen,
-          child: ListView.builder(
+          child: ListView(
             padding: EdgeInsets.only(
                 bottom: fullScreen
                     ? 2 * _bottomNavBarHeight
                     : 3 * _bottomNavBarHeight),
-            itemCount: chapter?.imgCnt ?? 0,
-            itemBuilder: (context, index) {
-              return Image.file(MyFS.loadChapterImage(
-                  subDir[subDir.length - 2], subDir.last, index),
-                fit: BoxFit.fitWidth,
-              );
-            },
             controller: _controller,
+            children: widgets,
           )),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -154,13 +147,12 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                       ),
                       onChanged: (Chapter? newValue) {
                         setState(() {
-                          chapter = newValue;
-                          manga?.bookmark(chapter!);
-                          DatabaseHelper.db.updateManga(manga!);
+                          manga.bookmark(newValue!);
+                          DatabaseHelper.db.updateManga(manga);
                         });
                       },
                       selectedItemBuilder: (BuildContext context) {
-                        return manga!
+                        return manga
                             .getChapters()
                             .reversed
                             .map<Widget>((Chapter chapter) {
@@ -181,7 +173,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                         }).toList();
                       },
                       items:
-                          manga?.getChapters().reversed.map((Chapter chapter) {
+                          manga.getChapters().reversed.map((Chapter chapter) {
                         return DropdownMenuItem(
                           value: chapter,
                           child: Text(chapter.title,
@@ -196,13 +188,14 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                   Expanded(
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back_ios),
-                      onPressed: manga?.hasPreviousChapter(chapter!) ?? false
+                      color: Colors.white,
+                      onPressed: manga.hasPreviousChapter(chapter)
                           ? () {
                               setState(() {
                                 _controller.jumpTo(0);
                                 chapter =
-                                    manga!.moveToPreviousChapter(chapter!);
-                                DatabaseHelper.db.updateManga(manga!);
+                                    manga.moveToPreviousChapter(chapter);
+                                DatabaseHelper.db.updateManga(manga);
                               });
                             }
                           : null,
@@ -211,12 +204,13 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                   Expanded(
                     child: IconButton(
                       icon: const Icon(Icons.arrow_forward_ios),
-                      onPressed: manga?.hasNextChapter(chapter!) ?? false
+                      color: Colors.white,
+                      onPressed: manga.hasNextChapter(chapter)
                           ? () {
                               setState(() {
                                 _controller.jumpTo(0);
-                                chapter = manga!.moveToNextChapter(chapter!);
-                                DatabaseHelper.db.updateManga(manga!);
+                                chapter = manga.moveToNextChapter(chapter);
+                                DatabaseHelper.db.updateManga(manga);
                               });
                             }
                           : null,
