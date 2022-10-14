@@ -107,6 +107,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
       body: InkWell(
           onDoubleTap: _toggleFullscreen,
           child: ListView.builder(
+            physics: const CustomScrollPhysics(friction: 0.005),
             padding: EdgeInsets.only(
                 bottom: fullScreen
                     ? 2 * _bottomNavBarHeight
@@ -238,7 +239,6 @@ class KeepAliveBuilder extends StatefulWidget {
 }
 
 class _KeepAliveBuilderState extends State<KeepAliveBuilder> with AutomaticKeepAliveClientMixin {
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -249,4 +249,30 @@ class _KeepAliveBuilderState extends State<KeepAliveBuilder> with AutomaticKeepA
 
   @override
   bool get wantKeepAlive => true;
+}
+
+class CustomScrollPhysics extends ScrollPhysics {
+  final double friction;
+  const CustomScrollPhysics({super.parent, required this.friction});
+
+  @override
+  ScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return CustomScrollPhysics(parent: buildParent(ancestor), friction: friction);
+  }
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    final tolerance = this.tolerance;
+    if ((velocity.abs() < tolerance.velocity) ||
+        (velocity > 0.0 && position.pixels >= position.maxScrollExtent) ||
+        (velocity < 0.0 && position.pixels <= position.minScrollExtent)) {
+      return null;
+    }
+    return ClampingScrollSimulation(
+      position: position.pixels,
+      velocity: velocity,
+      friction: friction,
+      tolerance: tolerance,
+    );
+  }
 }
