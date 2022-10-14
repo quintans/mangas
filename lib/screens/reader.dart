@@ -30,7 +30,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
 
     // Setup the listener.
     _controller.addListener(() {
-      var atBottom = isAtTheBottom();
+      var atBottom = shouldShowBars();
       if (showBars != atBottom) {
         setState(() {
           showBars = atBottom;
@@ -42,9 +42,9 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
     _enterFullScreen();
   }
 
-  bool isAtTheBottom() {
-    var pos = _controller.position;
-    if (pos.pixels == pos.maxScrollExtent) {
+  bool shouldShowBars() {
+    var after = _controller.position.extentAfter;
+    if (!showBars && after < 10 || showBars && after < 210) {
       return true;
     }
     return false;
@@ -61,7 +61,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
       fullScreen = !fullScreen;
       if (fullScreen) {
         _enterFullScreen();
-        showBars = isAtTheBottom();
+        showBars = shouldShowBars();
       } else {
         _exitFullScreen();
         showBars = true;
@@ -89,15 +89,8 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
   Widget build(BuildContext context) {
     var manga = widget.manga;
     var chapter = manga.getBookmarkedChapter();
+
     var subDir = chapter.src.split('/');
-    List<Widget> widgets = [];
-    for(var i =0; i < chapter.imgCnt; i++) {
-      var w = Image.file(MyFS.loadChapterImage(
-          subDir[subDir.length - 2], subDir.last, i),
-        fit: BoxFit.fitWidth,
-      );
-      widgets.add(w);
-    }
 
     return Scaffold(
       appBar: showBars
@@ -113,13 +106,22 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
           : null,
       body: InkWell(
           onDoubleTap: _toggleFullscreen,
-          child: ListView(
+          child: ListView.builder(
             padding: EdgeInsets.only(
                 bottom: fullScreen
                     ? 2 * _bottomNavBarHeight
                     : 3 * _bottomNavBarHeight),
             controller: _controller,
-            children: widgets,
+            itemCount: chapter.imgCnt,
+            itemBuilder: (_, int index) {
+              return KeepAliveBuilder(
+                builder: (_) {
+                  return Image.file(MyFS.loadChapterImage(
+                      subDir[subDir.length - 2], subDir.last, index));
+                }
+              );
+              // );
+            },
           )),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -222,4 +224,29 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
           : null,
     );
   }
+}
+
+class KeepAliveBuilder extends StatefulWidget {
+  final WidgetBuilder builder;
+
+  const KeepAliveBuilder({super.key,
+    required this.builder
+  });
+
+  @override
+  State<KeepAliveBuilder> createState() => _KeepAliveBuilderState();
+}
+
+class _KeepAliveBuilderState extends State<KeepAliveBuilder> with AutomaticKeepAliveClientMixin {
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Builder(
+      builder: widget.builder,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 }
