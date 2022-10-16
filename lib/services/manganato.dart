@@ -2,12 +2,19 @@ import 'package:mangas/models/remote.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:mangas/services/scrappers.dart';
 
-class Manganato {
+class Manganato implements Scrapper{
   static const rootURL = 'https://manganato.com';
   static const String searchPath = "/search/story";
 
-  static Future<List<SearchResult>> search(String query) async {
+  @override
+  String name() {
+    return 'Manganato';
+  }
+
+  @override
+  Future<List<SearchResult>> search(String query) async {
     query = query.trim();
     var url = '$rootURL$searchPath/${query.replaceAll(' ', '_')}';
 
@@ -44,7 +51,8 @@ class Manganato {
     }
   }
 
-  static Future<List<ChapterResult>> chapters(
+  @override
+  Future<List<ChapterResult>> chapters(
       String mangaSrc, String fromChapterSrc) async {
 
     final response = await http.Client().get(Uri.parse(mangaSrc));
@@ -85,7 +93,8 @@ class Manganato {
     }
   }
 
-  static Future<List<String>> chapterImages(String chapterSrc) async {
+  @override
+  Future<List<String>> chapterImages(String chapterSrc) async {
     final response = await http.Client().get(Uri.parse(chapterSrc));
     if (response.statusCode != 200) {
       throw Exception('Failed to load $chapterSrc: HTTP ${response.statusCode}');

@@ -11,61 +11,61 @@ class MyFS {
     docDir = await getApplicationDocumentsDirectory();
   }
 
-  static String mangasFolder() {
-    return join([docDir.path, 'mangas', 'manganato']);
+  static String mangasFolder(String providerID) {
+    return join([docDir.path, 'mangas', providerID]);
   }
 
-  static Future<File> downloadMangaCover(String src, String img) async {
+  static Future<File> downloadMangaCover(String providerID, String src, String img) async {
     var res = await http.get(Uri.parse(img));
-    await Directory(join([mangasFolder(), src])).create(recursive: true);
-    File file = File(join([mangasFolder(), src, 'cover.png']));
+    await Directory(join([mangasFolder(providerID), src])).create(recursive: true);
+    File file = File(join([mangasFolder(providerID), src, 'cover.png']));
     return file.writeAsBytes(res.bodyBytes);
   }
 
-  static Future<File> loadMangaCover(String src, String img) async {
-    File file = File(join([mangasFolder(), src, 'cover.png']));
+  static Future<File> loadMangaCover(String providerID, String src, String img) async {
+    File file = File(join([mangasFolder(providerID), src, 'cover.png']));
     if (file.existsSync()) {
       return file;
     }
-    return downloadMangaCover(src, img);
+    return downloadMangaCover(providerID, src, img);
   }
 
   static Future<File> downloadChapterImages(
-      String mangaSrc, String chapterSrc, int index, String img) async {
+      String providerID, String mangaSrc, String chapterSrc, int index, String img) async {
     var res = await http.get(
       Uri.parse(img),
       headers: {
         HttpHeaders.refererHeader: referer,
       },
     );
-    await Directory(join([mangasFolder(), mangaSrc, chapterSrc]))
+    await Directory(join([mangasFolder(providerID), mangaSrc, chapterSrc]))
         .create(recursive: true);
     var idx = index.toString().padLeft(3, '0');
     File file = File(
-        join([mangasFolder(), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
+        join([mangasFolder(providerID), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
     return file.writeAsBytes(res.bodyBytes);
   }
 
   static File loadChapterImage(
-      String mangaSrc, String chapterSrc, int index) {
+      String providerID, String mangaSrc, String chapterSrc, int index) {
     var idx = index.toString().padLeft(3, '0');
     File file = File(
-        join([mangasFolder(), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
+        join([mangasFolder(providerID), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
     if (file.existsSync()) {
       return file;
     }
     throw Exception('$file not found');
   }
 
-  static deleteManga(String mangaSrc) {
-    var dir = Directory(join([mangasFolder(), mangaSrc]));
+  static deleteManga(String providerID, String mangaSrc) {
+    var dir = Directory(join([mangasFolder(providerID), mangaSrc]));
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
     }
   }
 
-  static deleteChapter(String mangaSrc, String chapterSrc) {
-    var dir = Directory(join([mangasFolder(), mangaSrc, chapterSrc]));
+  static deleteChapter(String providerID, String mangaSrc, String chapterSrc) {
+    var dir = Directory(join([mangasFolder(providerID), mangaSrc, chapterSrc]));
     if (dir.existsSync()) {
       dir.deleteSync(recursive: true);
     }

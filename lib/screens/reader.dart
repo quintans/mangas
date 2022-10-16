@@ -118,6 +118,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
               return KeepAliveBuilder(
                 builder: (_) {
                   return Image.file(MyFS.loadChapterImage(
+                    manga.scrapperID,
                       subDir[subDir.length - 2], subDir.last, index));
                 }
               );
