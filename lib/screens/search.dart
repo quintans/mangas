@@ -3,9 +3,10 @@ import 'package:mangas/models/persistence.dart';
 import 'package:mangas/services/filesystem.dart';
 import 'dart:async';
 
-import 'package:mangas/services/manganato.dart';
 import 'package:mangas/services/persistence.dart';
+import 'package:mangas/services/scrappers.dart';
 import 'package:mangas/utils/utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SearchResultModel {
   final String title;
@@ -31,17 +32,20 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPage extends State<SearchPage> {
+  final String _scrapperKey = 'scrapper_key';
+  
   Timer? _debounce;
-  final List<SearchResultModel> items = [];
-  String lastQuery = '';
-  List<String> sources = [];
+  final List<SearchResultModel> _items = [];
+  String _lastQuery = '';
+  List<String> _sources = [];
+  String _scrapperID = 'manganato';
 
-  void _search(String query) async {
-    if (query.isEmpty || query == lastQuery) {
+  void _search(Scrapper scrapper, String query) async {
+    if (query.isEmpty || query == _lastQuery) {
       return;
     }
 
-    var results = await Manganato.search(query);
+    var results = await scrapper.search(query);
     var r = <SearchResultModel>[];
     for (var v in results) {
       r.add(SearchResultModel(
@@ -53,19 +57,28 @@ class _SearchPage extends State<SearchPage> {
       ));
     }
     setState(() {
-      items.clear();
-      items.addAll(r);
+      _items.clear();
+      _items.addAll(r);
     });
 
-    lastQuery = query;
+    _lastQuery = query;
   }
 
   @override
   void initState() {
     super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      var v = prefs.getString(_scrapperKey);
+      if (v != null) {
+        setState(() {
+          _scrapperID = v;
+        });
+      }
+    });
+
     _getMangaCodes().then((value) {
       setState(() {
-        sources = value;
+        _sources = value;
       });
     });
   }
@@ -77,8 +90,8 @@ class _SearchPage extends State<SearchPage> {
   void _clearSearch() {
     controller.clear();
     setState(() {
-      lastQuery = '';
-      items.clear();
+      _lastQuery = '';
+      _items.clear();
     });
   }
 
@@ -94,12 +107,14 @@ class _SearchPage extends State<SearchPage> {
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 1000), () {
-      _search(query);
+      var scrapper = Scrappers.getScrapper(_scrapperID);
+      _search(scrapper, query);
     });
   }
 
   _onBookmark(SearchResultModel item) async {
-    var res = await Manganato.chapters(item.src, '');
+    var scrapper = Scrappers.getScrapper(_scrapperID);
+    var res = await scrapper.chapters(item.src, '');
     List<Chapter> chapters = [];
     for (var r in res) {
       chapters.add(Chapter(
@@ -118,16 +133,17 @@ class _SearchPage extends State<SearchPage> {
         title: item.title,
         img: item.img,
         src: item.src,
+        scrapperID: _scrapperID,
         bookmarkedChapterID: 1,
         lastChapterID: 0,
         chapters: chapters);
     var subDir = manga.src.split('/').last;
     // save image to directory
-    await MyFS.downloadMangaCover(subDir, manga.img);
+    await MyFS.downloadMangaCover(_scrapperID, subDir, manga.img);
     await DatabaseHelper.db.insertManga(manga);
 
     setState(() {
-      sources.add(item.src);
+      _sources.add(item.src);
     });
   }
 
@@ -137,39 +153,75 @@ class _SearchPage extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          // The search area here
-          title: Container(
-        width: double.infinity,
-        height: 40,
-        decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(5)),
-        child: Center(
-          child: TextField(
-            autofocus: true,
-            onChanged: _onSearchChanged,
-            controller: controller,
-            decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _clearSearch();
+        toolbarHeight: 120,
+        // The search area here
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+
+          children: [
+            Container(
+              width: double.infinity,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(5)),
+              child: Center(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _scrapperID,
+                  onChanged: (value) {
+                    if (value != null) {
+                      SharedPreferences.getInstance().then((prefs) {
+                        _scrapperID = value;
+                        prefs.setString(_scrapperKey, _scrapperID);
+                        _clearSearch();
+                      });
+                    }
                   },
+                  items: Scrappers.getScrappers().entries.map((entry) => DropdownMenuItem<String>(
+                    value: entry.key,
+                    child: Text(entry.value.name()),
+                  )).toList(),
+                  // items: Scrappers.getScrappers().map((key, value) => null),
                 ),
-                hintText: 'Search...',
-                border: InputBorder.none),
-          ),
+              ),
+            ),
+            const SizedBox(height: 10,),
+            Container(
+              width: double.infinity,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(5)),
+              child: Center(
+                child: TextField(
+                  autofocus: true,
+                  onChanged: _onSearchChanged,
+                  controller: controller,
+                  decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _clearSearch();
+                        },
+                      ),
+                      hintText: 'Search...',
+                      border: InputBorder.none),
+                ),
+              ),
+            )
+          ],
         ),
-      )),
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.only(bottom: 56),
-        itemCount: items.length,
+        itemCount: _items.length,
         separatorBuilder: (context, index) => const SizedBox(
           height: 2,
         ),
         itemBuilder: (context, index) {
-          var item = items[index];
-          var disabled = sources.contains(item.src);
+          var item = _items[index];
+          var disabled = _sources.contains(item.src);
           return IntrinsicHeight(
               child: Row(
             children: [

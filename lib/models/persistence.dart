@@ -3,6 +3,7 @@ class Manga {
   final String title;
   final String img;
   final String src;
+  final String scrapperID;
   int bookmarkedChapterID;
   int lastChapterID;
   final List<Chapter> chapters;
@@ -12,6 +13,7 @@ class Manga {
     required this.title,
     required this.img,
     required this.src,
+    required this.scrapperID,
     required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
@@ -29,6 +31,7 @@ class Manga {
     required this.title,
     required this.img,
     required this.src,
+    required this.scrapperID,
     required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
@@ -39,6 +42,7 @@ class Manga {
       'title': title,
       'img': img,
       'src': src,
+      'scrapper_id': scrapperID,
       'bookmarked_chapter_id': bookmarkedChapterID,
       'last_chapter_id': lastChapterID,
     };
@@ -181,10 +185,6 @@ class Chapter {
     _dirty = true;
   }
 
-  @override
-  String toString() {
-    return 'Chapter{id: $id, mangaID: $mangaID, title: $title, src: $src, uploadedAt: $uploadedAt, downloaded: $downloaded}';
-  }
 }
 
 class MangaView {
@@ -192,6 +192,7 @@ class MangaView {
   final String title;
   final String img;
   final String src;
+  final String scrapperID;
   String bookmarkedChapter;
   final String lastChapter;
   final DateTime lastUploadedAt;
@@ -202,14 +203,11 @@ class MangaView {
     required this.title,
     required this.img,
     required this.src,
+    required this.scrapperID,
     required this.bookmarkedChapter,
     required this.lastChapter,
     required this.lastUploadedAt,
     required this.missingDownloads,
   });
 
-  @override
-  String toString() {
-    return 'MangaView{id: $id, title: $title, img: $img, src: $src, bookmarkedChapter: $bookmarkedChapter, lastChapter: $lastChapter, lastUploadedAt: $lastUploadedAt}';
-  }
 }

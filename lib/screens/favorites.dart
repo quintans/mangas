@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:mangas/services/filesystem.dart';
 import 'package:mangas/services/manganato.dart';
 import 'package:mangas/services/persistence.dart';
+import 'package:mangas/services/scrappers.dart';
 import 'package:mangas/utils/utils.dart';
 import './search.dart';
 import './reader.dart';
@@ -170,12 +171,14 @@ class _FavoritesPage extends State<FavoritesPage> {
       ProgressDialog pd, Manga manga, int count) async {
     var chapters = manga.getChaptersToDownload();
 
+    var provider = Scrappers.getScrapper(manga.scrapperID);
+
     for (var ch in chapters) {
-      var imgs = await Manganato.chapterImages(ch.src);
+      var imgs = await provider.chapterImages(ch.src);
       List<Future<File>> futures = [];
       for (var i = 0; i < imgs.length; i++) {
         var subDir = ch.src.split('/');
-        var f = MyFS.downloadChapterImages(
+        var f = MyFS.downloadChapterImages(manga.scrapperID,
             subDir[subDir.length - 2], subDir.last, i, imgs[i]);
         futures.add(f);
       }
@@ -191,7 +194,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     _confirm("Would you like to delete ${mangaView.title}?", () {
       DatabaseHelper.db.deleteManga(mangaView.id).then((value) {
         var subDir = mangaView.src.split('/').last;
-        _load().then((value) => MyFS.deleteManga(subDir));
+        _load().then((value) => MyFS.deleteManga(mangaView.scrapperID, subDir));
       });
     });
   }
@@ -204,8 +207,9 @@ class _FavoritesPage extends State<FavoritesPage> {
     pd.show(max: mng.length, msg: 'Looking for new chapters...');
     var count = 0;
     for (var m in mng) {
+      var provider = Scrappers.getScrapper(m.scrapperID);
       var last = m.getChapters().last;
-      var newChapters = await Manganato.chapters(m.src, last.src);
+      var newChapters = await provider.chapters(m.src, last.src);
       for (var r in newChapters) {
         m.addChapter(Chapter(
           id: 0,
@@ -250,7 +254,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     var chapters = manga.getChaptersToDiscard();
     for (var c in chapters) {
       var subDir = c.src.split('/');
-      await MyFS.deleteChapter(subDir[subDir.length - 2], subDir.last);
+      await MyFS.deleteChapter(manga.scrapperID, subDir[subDir.length - 2], subDir.last);
       c.discarded();
     }
     if (chapters.isNotEmpty) {
@@ -326,7 +330,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                     width: 4,
                   ),
                   FutureBuilder<File>(
-                    future: MyFS.loadMangaCover(subDir, manga.img),
+                    future: MyFS.loadMangaCover(manga.scrapperID, subDir, manga.img),
                     builder:
                         (BuildContext context, AsyncSnapshot<File> snapshot) {
                       if (snapshot.hasData) {
