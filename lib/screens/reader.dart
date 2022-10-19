@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:mangas/models/persistence.dart';
 import 'package:mangas/services/filesystem.dart';
@@ -43,8 +44,12 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
   }
 
   bool shouldShowBars() {
+    if (_controller.position.userScrollDirection == ScrollDirection.forward) {
+      return true;
+    }
+
     var after = _controller.position.extentAfter;
-    if (!showBars && after < 10 || showBars && after < 210) {
+    if (!showBars && after == 0 || showBars && after < 210) {
       return true;
     }
     return false;
