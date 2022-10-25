@@ -3,7 +3,7 @@ class Manga {
   final String title;
   final String img;
   final String src;
-  final String scrapperID;
+  final String scraperID;
   int bookmarkedChapterID;
   int lastChapterID;
   final List<Chapter> chapters;
@@ -13,7 +13,7 @@ class Manga {
     required this.title,
     required this.img,
     required this.src,
-    required this.scrapperID,
+    required this.scraperID,
     required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
@@ -31,7 +31,7 @@ class Manga {
     required this.title,
     required this.img,
     required this.src,
-    required this.scrapperID,
+    required this.scraperID,
     required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
@@ -42,7 +42,7 @@ class Manga {
       'title': title,
       'img': img,
       'src': src,
-      'scrapper_id': scrapperID,
+      'scraper_id': scraperID,
       'bookmarked_chapter_id': bookmarkedChapterID,
       'last_chapter_id': lastChapterID,
     };
@@ -192,7 +192,7 @@ class MangaView {
   final String title;
   final String img;
   final String src;
-  final String scrapperID;
+  final String scraperID;
   String bookmarkedChapter;
   final String lastChapter;
   final DateTime lastUploadedAt;
@@ -203,7 +203,7 @@ class MangaView {
     required this.title,
     required this.img,
     required this.src,
-    required this.scrapperID,
+    required this.scraperID,
     required this.bookmarkedChapter,
     required this.lastChapter,
     required this.lastUploadedAt,

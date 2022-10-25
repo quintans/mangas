@@ -4,7 +4,7 @@ import 'package:mangas/services/filesystem.dart';
 import 'dart:async';
 
 import 'package:mangas/services/persistence.dart';
-import 'package:mangas/services/scrappers.dart';
+import 'package:mangas/services/scrapers.dart';
 import 'package:mangas/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,20 +32,20 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPage extends State<SearchPage> {
-  final String _scrapperKey = 'scrapper_key';
+  final String _scraperKey = 'scraper_key';
   
   Timer? _debounce;
   final List<SearchResultModel> _items = [];
   String _lastQuery = '';
   List<String> _sources = [];
-  String _scrapperID = 'manganato';
+  String _scraperID = 'manganato';
 
-  void _search(Scrapper scrapper, String query) async {
+  void _search(Scraper scraper, String query) async {
     if (query.isEmpty || query == _lastQuery) {
       return;
     }
 
-    var results = await scrapper.search(query);
+    var results = await scraper.search(query);
     var r = <SearchResultModel>[];
     for (var v in results) {
       r.add(SearchResultModel(
@@ -68,10 +68,10 @@ class _SearchPage extends State<SearchPage> {
   void initState() {
     super.initState();
     SharedPreferences.getInstance().then((prefs) {
-      var v = prefs.getString(_scrapperKey);
+      var v = prefs.getString(_scraperKey);
       if (v != null) {
         setState(() {
-          _scrapperID = v;
+          _scraperID = v;
         });
       }
     });
@@ -107,14 +107,14 @@ class _SearchPage extends State<SearchPage> {
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 1000), () {
-      var scrapper = Scrappers.getScrapper(_scrapperID);
-      _search(scrapper, query);
+      var scraper = Scrapers.getScraper(_scraperID);
+      _search(scraper, query);
     });
   }
 
   _onBookmark(SearchResultModel item) async {
-    var scrapper = Scrappers.getScrapper(_scrapperID);
-    var res = await scrapper.chapters(item.src, '');
+    var scraper = Scrapers.getScraper(_scraperID);
+    var res = await scraper.chapters(item.src, '');
     List<Chapter> chapters = [];
     for (var r in res) {
       chapters.add(Chapter(
@@ -133,13 +133,13 @@ class _SearchPage extends State<SearchPage> {
         title: item.title,
         img: item.img,
         src: item.src,
-        scrapperID: _scrapperID,
+        scraperID: _scraperID,
         bookmarkedChapterID: 1,
         lastChapterID: 0,
         chapters: chapters);
     var subDir = manga.src.split('/').last;
     // save image to directory
-    await MyFS.downloadMangaCover(_scrapperID, subDir, manga.img);
+    await MyFS.downloadMangaCover(_scraperID, subDir, manga.img);
     await DatabaseHelper.db.insertManga(manga);
 
     setState(() {
@@ -168,21 +168,21 @@ class _SearchPage extends State<SearchPage> {
               child: Center(
                 child: DropdownButton<String>(
                   isExpanded: true,
-                  value: _scrapperID,
+                  value: _scraperID,
                   onChanged: (value) {
                     if (value != null) {
                       SharedPreferences.getInstance().then((prefs) {
-                        _scrapperID = value;
-                        prefs.setString(_scrapperKey, _scrapperID);
+                        _scraperID = value;
+                        prefs.setString(_scraperKey, _scraperID);
                         _clearSearch();
                       });
                     }
                   },
-                  items: Scrappers.getScrappers().entries.map((entry) => DropdownMenuItem<String>(
+                  items: Scrapers.getScrapers().entries.map((entry) => DropdownMenuItem<String>(
                     value: entry.key,
                     child: Text(entry.value.name()),
                   )).toList(),
-                  // items: Scrappers.getScrappers().map((key, value) => null),
+                  // items: Scrapers.getScrapers().map((key, value) => null),
                 ),
               ),
             ),

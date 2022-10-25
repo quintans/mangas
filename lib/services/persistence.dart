@@ -8,7 +8,7 @@ class DatabaseHelper {
   static const String _mgTitle = 'title';
   static const String _mgImg = 'img';
   static const String _mgSrc = 'src';
-  static const String _mgScrapperID = 'scrapper_id';
+  static const String _mgScraperID = 'scraper_id';
   static const String _mgBookmarkedChapterID = 'bookmarked_chapter_id';
   static const String _mgLastChapterID = 'last_chapter_id';
 
@@ -47,7 +47,7 @@ class DatabaseHelper {
             $_mgTitle TEXT NOT NULL, 
             $_mgImg TEXT, 
             $_mgSrc TEXT NOT NULL, 
-            $_mgScrapperID TEXT DEFAULT "manganato" NOT NULL, 
+            $_mgScraperID TEXT DEFAULT "manganato" NOT NULL, 
             $_mgBookmarkedChapterID INTEGER, 
             $_mgLastChapterID INTEGER
           )''',
@@ -210,7 +210,7 @@ class DatabaseHelper {
       title: m[_mgTitle].toString(),
       img: m[_mgImg].toString(),
       src: m[_mgSrc].toString(),
-      scrapperID: m[_mgScrapperID].toString(),
+      scraperID: m[_mgScraperID].toString(),
       bookmarkedChapterID: m[_mgBookmarkedChapterID] as int,
       lastChapterID: m[_mgLastChapterID] as int,
         chapters: chapters,
@@ -239,7 +239,7 @@ class DatabaseHelper {
       title: e[_mgTitle].toString(),
       img: e[_mgImg].toString(),
       src: e[_mgSrc].toString(),
-      scrapperID: e[_mgScrapperID].toString(),
+      scraperID: e[_mgScraperID].toString(),
       bookmarkedChapter: e['bm_title']?.toString() ?? '',
       lastChapter: e['last_title']?.toString() ?? '',
       lastUploadedAt: at,

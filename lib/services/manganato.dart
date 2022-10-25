@@ -2,9 +2,9 @@ import 'package:mangas/models/remote.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:mangas/services/scrappers.dart';
+import 'package:mangas/services/scrapers.dart';
 
-class Manganato implements Scrapper{
+class Manganato implements Scraper{
   static const rootURL = 'https://manganato.com';
   static const String searchPath = "/search/story";
 

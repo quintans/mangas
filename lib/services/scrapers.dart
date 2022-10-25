@@ -1,19 +1,19 @@
 import 'package:mangas/models/remote.dart';
 import 'package:mangas/services/manganato.dart';
 
-class Scrappers {
-  static final Map<String, Scrapper> _scrappers =  { "manganato": Manganato()};
+class Scrapers {
+  static final Map<String, Scraper> _scrapers =  { "manganato": Manganato()};
 
-  static Map<String, Scrapper> getScrappers() {
-    return _scrappers;
+  static Map<String, Scraper> getScrapers() {
+    return _scrapers;
   }
 
-  static Scrapper getScrapper(String providerID) {
-    return _scrappers[providerID]!;
+  static Scraper getScraper(String scraperID) {
+    return _scrapers[scraperID]!;
   }
 }
 
-abstract class Scrapper {
+abstract class Scraper {
   String name() {
     throw Exception('name is unimplemented');
   }
