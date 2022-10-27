@@ -4,6 +4,7 @@ class SearchResult {
   final String updatedDate;
   final String img;
   final String src;
+  final String folder;
 
   SearchResult({
     required this.title,
@@ -11,18 +12,21 @@ class SearchResult {
     required this.img,
     required this.src,
     required this.updatedDate,
+    required this.folder,
   });
 }
 
 class ChapterResult {
   final String title;
   final String src;
+  final String folder;
   final DateTime uploadedAt;
 
   ChapterResult({
     required this.title,
     required this.src,
     required this.uploadedAt,
+    required this.folder,
   });
 
   @override

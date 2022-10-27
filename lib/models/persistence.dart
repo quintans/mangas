@@ -8,6 +8,8 @@ class Manga {
   int lastChapterID;
   final List<Chapter> chapters;
 
+  String folder;
+
   Manga({
     required this.id,
     required this.title,
@@ -17,6 +19,7 @@ class Manga {
     required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
+    required this.folder,
   }) {
     for (var i = 0; i < chapters.length; i++) {
       chapters[i].id = i + 1;
@@ -35,6 +38,7 @@ class Manga {
     required this.bookmarkedChapterID,
     required this.lastChapterID,
     required this.chapters,
+    required this.folder,
   });
 
   Map<String, Object?> toMap() {
@@ -42,6 +46,7 @@ class Manga {
       'title': title,
       'img': img,
       'src': src,
+      'folder': folder,
       'scraper_id': scraperID,
       'bookmarked_chapter_id': bookmarkedChapterID,
       'last_chapter_id': lastChapterID,
@@ -139,6 +144,13 @@ class Chapter {
   int imgCnt = 0;
   bool _dirty = false;
 
+  String? _folder;
+  String get folder => _folder!;
+  set folder(String folder) {
+    _folder = folder;
+    _dirty = true;
+  }
+
   Chapter({
     required this.id,
     required this.mangaID,
@@ -147,7 +159,11 @@ class Chapter {
     required this.uploadedAt,
     required this.downloaded,
     required this.imgCnt,
-  });
+    required folder,
+  }) {
+    _folder = folder;
+  }
+
 
   Map<String, Object?> toMap() {
     return {
@@ -155,6 +171,7 @@ class Chapter {
       'id': id,
       'title': title,
       'src': src,
+      'folder': folder,
       'downloaded': downloaded ? 1 : 0,
       'img_cnt': imgCnt,
       'uploaded_at': uploadedAt.millisecondsSinceEpoch,
@@ -198,6 +215,9 @@ class MangaView {
   final DateTime lastUploadedAt;
   final int missingDownloads;
 
+  final String _folder;
+  String get folder => _folder;
+
   MangaView({
     required this.id,
     required this.title,
@@ -208,6 +228,8 @@ class MangaView {
     required this.lastChapter,
     required this.lastUploadedAt,
     required this.missingDownloads,
-  });
+    required folder,
+  }) :
+        _folder = folder;
 
 }

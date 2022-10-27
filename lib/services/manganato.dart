@@ -13,6 +13,14 @@ class Manganato implements Scraper{
     return 'Manganato';
   }
 
+  String _getMangaFolder(String src) {
+    return src.split('/').last;
+  }
+
+  String _getChapterFolder(String src) {
+    return src.split('/').last;
+  }
+
   @override
   Future<List<SearchResult>> search(String query) async {
     query = query.trim();
@@ -32,7 +40,7 @@ class Manganato implements Scraper{
         var img = element.getElementsByTagName('img');
         var attrs = img[0].attributes;
         var src = img[0].parent?.attributes['href'];
-
+        var folder = src?.split('/').last;
         var rightElement = element.getElementsByClassName('item-right')[0];
         var lastChapter = rightElement.children[1].innerHtml;
         var updated = rightElement.children[4].innerHtml;
@@ -42,6 +50,7 @@ class Manganato implements Scraper{
             lastChapter: lastChapter,
             img: attrs["src"] ?? '',
             src: src ?? '',
+            folder: folder ?? '',
             updatedDate: updated));
       }
 
@@ -84,7 +93,12 @@ class Manganato implements Scraper{
         }
 
         results.add(
-            ChapterResult(title: title, src: src ?? '', uploadedAt: timestamp));
+            ChapterResult(
+                title: title,
+                src: src ?? '',
+                folder: src?.split('/').last ?? '',
+                uploadedAt: timestamp,
+            ));
       }
 
       return List.from(results.reversed);

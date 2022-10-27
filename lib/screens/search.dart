@@ -13,6 +13,7 @@ class SearchResultModel {
   final String lastChapter;
   final String img;
   final String src;
+  final String folder;
   final String uploadedDate;
 
   SearchResultModel({
@@ -20,6 +21,7 @@ class SearchResultModel {
     required this.lastChapter,
     required this.img,
     required this.src,
+    required this.folder,
     required this.uploadedDate,
   });
 }
@@ -53,6 +55,7 @@ class _SearchPage extends State<SearchPage> {
         lastChapter: v.lastChapter,
         img: v.img,
         src: v.src,
+        folder: v.folder,
         uploadedDate: v.updatedDate,
       ));
     }
@@ -125,6 +128,7 @@ class _SearchPage extends State<SearchPage> {
         uploadedAt: r.uploadedAt,
         downloaded: false,
         imgCnt: 0,
+        folder: r.folder,
       ));
     }
 
@@ -136,10 +140,11 @@ class _SearchPage extends State<SearchPage> {
         scraperID: _scraperID,
         bookmarkedChapterID: 1,
         lastChapterID: 0,
+        folder: item.folder,
         chapters: chapters);
-    var subDir = manga.src.split('/').last;
+
     // save image to directory
-    await MyFS.downloadMangaCover(_scraperID, subDir, manga.img);
+    await MyFS.downloadMangaCover(_scraperID, manga.folder, manga.img);
     await DatabaseHelper.db.insertManga(manga);
 
     setState(() {

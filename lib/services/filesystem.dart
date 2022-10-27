@@ -18,12 +18,12 @@ class MyFS {
   static Future<File> downloadMangaCover(String scraperID, String src, String img) async {
     var res = await http.get(Uri.parse(img));
     await Directory(join([mangasFolder(scraperID), src])).create(recursive: true);
-    File file = File(join([mangasFolder(scraperID), src, 'cover.png']));
+    File file = File(join([mangasFolder(scraperID), src, 'cover.jpg']));
     return file.writeAsBytes(res.bodyBytes);
   }
 
   static Future<File> loadMangaCover(String scraperID, String src, String img) async {
-    File file = File(join([mangasFolder(scraperID), src, 'cover.png']));
+    File file = File(join([mangasFolder(scraperID), src, 'cover.jpg']));
     if (file.existsSync()) {
       return file;
     }
@@ -42,7 +42,7 @@ class MyFS {
         .create(recursive: true);
     var idx = index.toString().padLeft(3, '0');
     File file = File(
-        join([mangasFolder(scraperID), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
+        join([mangasFolder(scraperID), mangaSrc, chapterSrc, '$chapterSrc-$idx.jpg']));
     return file.writeAsBytes(res.bodyBytes);
   }
 
@@ -50,11 +50,17 @@ class MyFS {
       String scraperID, String mangaSrc, String chapterSrc, int index) {
     var idx = index.toString().padLeft(3, '0');
     File file = File(
-        join([mangasFolder(scraperID), mangaSrc, chapterSrc, '$chapterSrc-$idx']));
+        join([mangasFolder(scraperID), mangaSrc, chapterSrc, '$chapterSrc-$idx.jpg']));
     if (file.existsSync()) {
       return file;
     }
     throw Exception('$file not found');
+  }
+  static deleteMangas() {
+    var dir = Directory(join([docDir.path, 'mangas']));
+    if (dir.existsSync()) {
+      dir.deleteSync(recursive: true);
+    }
   }
 
   static deleteManga(String scraperID, String mangaSrc) {

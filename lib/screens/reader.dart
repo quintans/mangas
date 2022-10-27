@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:mangas/models/persistence.dart';
 import 'package:mangas/services/filesystem.dart';
 import 'package:mangas/services/persistence.dart';
+import 'package:mangas/services/scrapers.dart';
 
 class ReaderPage extends StatefulWidget {
   final Manga manga;
@@ -95,8 +96,6 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
     var manga = widget.manga;
     var chapter = manga.getBookmarkedChapter();
 
-    var subDir = chapter.src.split('/');
-
     return Scaffold(
       appBar: showBars
           ? AppBar(
@@ -124,7 +123,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
                 builder: (_) {
                   return Image.file(MyFS.loadChapterImage(
                     manga.scraperID,
-                      subDir[subDir.length - 2], subDir.last, index));
+                      manga.folder, chapter.folder, index));
                 }
               );
               // );
