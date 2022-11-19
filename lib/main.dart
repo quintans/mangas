@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mangas/services/filesystem.dart';
+import 'package:mangas/services/navigation_service.dart';
 import './screens/favorites.dart';
 
 void main() async {
@@ -23,6 +24,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.indigo,
       ),
+      restorationScopeId: 'root',
+      navigatorKey: NavigationService().navigationKey,
       home: const FavoritesPage(),
     );
   }

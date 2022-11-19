@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:mangas/services/filesystem.dart';
+import 'package:mangas/services/navigation_service.dart';
 import 'package:mangas/services/persistence.dart';
 import 'package:mangas/services/scrapers.dart';
 import 'package:mangas/utils/utils.dart';
@@ -23,6 +24,7 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPage extends State<FavoritesPage> {
   final String _lastReadKey = 'last_read';
+  final String _currentReadKey = 'current_read';
   static const int _downloadThreshold = 10;
 
   List<MangaView> mangas = [];
@@ -37,31 +39,36 @@ class _FavoritesPage extends State<FavoritesPage> {
 
   Future<void> _load() async {
     var prefs = await SharedPreferences.getInstance();
-    var v = prefs.getInt(_lastReadKey);
-    if (v != null) {
-      setState(() {
-        _lastRead = v;
-      });
+    var current = prefs.getInt(_currentReadKey);
+    if (current != null) {
+      _readManga(current);
+      return;
     }
 
-    return DatabaseHelper.db.getMangaReadingOrder().then((value) {
+    var last = prefs.getInt(_lastReadKey);
+
+    DatabaseHelper.db.getMangaReadingOrder().then((value) {
       // check if file exists in FS
       setState(() {
         mangas = value;
+        _lastRead = last ?? -1;
       });
     });
   }
 
-  _readManga(BuildContext context, int mangaID) async {
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setInt(_lastReadKey, mangaID);
-    });
-    DatabaseHelper.db.getManga(mangaID).then((value) => Navigator.of(context)
-        .push(MaterialPageRoute(
-            builder: (_) => ReaderPage(
-                  manga: value!,
-                )))
-        .then((value) => _load()));
+  _readManga(int mangaID) async {
+    var prefs = await SharedPreferences.getInstance();
+    prefs.setInt(_lastReadKey, mangaID);
+    prefs.setInt(_currentReadKey, mangaID);
+
+    DatabaseHelper.db.getManga(mangaID).then((value) => NavigationService()
+            .navigateToScreen(ReaderPage(
+          manga: value!,
+        ))
+            .then((value) {
+          prefs.remove(_currentReadKey);
+          _load();
+        }));
   }
 
   Future<Chapter?> _chooseCurrentChapter(
@@ -259,7 +266,7 @@ class _FavoritesPage extends State<FavoritesPage> {
       pd.update(value: ++count);
     }
     snack.show('Finished looking for new chapters');
-    return _load();
+    _load();
   }
 
   _scrubAllMangas() async {
@@ -447,10 +454,11 @@ class _FavoritesPage extends State<FavoritesPage> {
         itemBuilder: (context, index) {
           var manga = mangas[index];
           return ColoredBox(
-            color: _lastRead == manga.id ? Colors.lightBlue.shade50 : Colors.white,
+            color:
+                _lastRead == manga.id ? Colors.lightBlue.shade50 : Colors.white,
             child: InkWell(
                 onTap: () {
-                  _readManga(context, manga.id);
+                  _readManga(manga.id);
                 },
                 child: IntrinsicHeight(
                     child: Row(
@@ -618,8 +626,8 @@ class _FavoritesPage extends State<FavoritesPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const SearchPage()))
+        onPressed: () => NavigationService()
+            .navigateToScreen(const SearchPage())
             .then((value) => _load()),
         tooltip: 'Add new Manga',
         child: const Icon(Icons.add),
