@@ -6,6 +6,7 @@ import 'package:mangas/services/filesystem.dart';
 import 'package:mangas/services/persistence.dart';
 import 'package:mangas/services/scrapers.dart';
 import 'package:mangas/utils/utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import './search.dart';
 import './reader.dart';
 import '../models/persistence.dart';
@@ -21,9 +22,11 @@ class FavoritesPage extends StatefulWidget {
 }
 
 class _FavoritesPage extends State<FavoritesPage> {
+  final String _lastReadKey = 'last_read';
   static const int _downloadThreshold = 10;
 
   List<MangaView> mangas = [];
+  int _lastRead = -1;
 
   @override
   void initState() {
@@ -33,12 +36,32 @@ class _FavoritesPage extends State<FavoritesPage> {
   }
 
   Future<void> _load() async {
+    var prefs = await SharedPreferences.getInstance();
+    var v = prefs.getInt(_lastReadKey);
+    if (v != null) {
+      setState(() {
+        _lastRead = v;
+      });
+    }
+
     return DatabaseHelper.db.getMangaReadingOrder().then((value) {
       // check if file exists in FS
       setState(() {
         mangas = value;
       });
     });
+  }
+
+  _readManga(BuildContext context, int mangaID) async {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setInt(_lastReadKey, mangaID);
+    });
+    DatabaseHelper.db.getManga(mangaID).then((value) => Navigator.of(context)
+        .push(MaterialPageRoute(
+            builder: (_) => ReaderPage(
+                  manga: value!,
+                )))
+        .then((value) => _load()));
   }
 
   Future<Chapter?> _chooseCurrentChapter(
@@ -423,176 +446,175 @@ class _FavoritesPage extends State<FavoritesPage> {
         ),
         itemBuilder: (context, index) {
           var manga = mangas[index];
-          return InkWell(
-              onTap: () {
-                DatabaseHelper.db
-                    .getManga(manga.id)
-                    .then((value) => Navigator.of(context)
-                        .push(MaterialPageRoute(
-                            builder: (_) => ReaderPage(
-                                  manga: value!,
-                                )))
-                        .then((value) => _load()));
-              },
-              child: IntrinsicHeight(
-                  child: Row(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  const SizedBox(
-                    width: 4,
-                  ),
-                  FutureBuilder<File>(
-                    future: MyFS.loadMangaCover(
-                        manga.scraperID, manga.folder, manga.img),
-                    builder:
-                        (BuildContext context, AsyncSnapshot<File> snapshot) {
-                      if (snapshot.hasData) {
-                        return Image.file(
-                          snapshot.requireData,
-                          height: 90,
-                          width: 61,
-                        );
-                      } else if (snapshot.hasError) {
-                        return Image.asset(
-                          'images/error.png',
-                          height: 90,
-                          width: 61,
-                        );
-                      } else {
-                        return Image.asset(
-                          'images/hourglass.png',
-                          height: 90,
-                          width: 61,
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(
-                    width: 4,
-                  ),
-                  Expanded(
-                      child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Text(
-                        manga.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Row(
-                        children: [
-                          const Text('Current: '),
-                          Expanded(
-                            child: Text(
-                              manga.bookmarkedChapter,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+          return ColoredBox(
+            color: _lastRead == manga.id ? Colors.lightBlue.shade50 : Colors.white,
+            child: InkWell(
+                onTap: () {
+                  _readManga(context, manga.id);
+                },
+                child: IntrinsicHeight(
+                    child: Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    const SizedBox(
+                      width: 4,
+                    ),
+                    FutureBuilder<File>(
+                      future: MyFS.loadMangaCover(
+                          manga.scraperID, manga.folder, manga.img),
+                      builder:
+                          (BuildContext context, AsyncSnapshot<File> snapshot) {
+                        if (snapshot.hasData) {
+                          return Image.file(
+                            snapshot.requireData,
+                            height: 90,
+                            width: 61,
+                          );
+                        } else if (snapshot.hasError) {
+                          return Image.asset(
+                            'images/error.png',
+                            height: 90,
+                            width: 61,
+                          );
+                        } else {
+                          return Image.asset(
+                            'images/hourglass.png',
+                            height: 90,
+                            width: 61,
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(
+                      width: 4,
+                    ),
+                    Expanded(
+                        child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Text(
+                          manga.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          const Text('Last: '),
-                          Expanded(
-                            child: Text(
-                              manga.lastChapter +
-                                  (manga.missingDownloads > 0
-                                      ? ' (${manga.missingDownloads})'
-                                      : ''),
-                              style: TextStyle(
-                                fontWeight:
-                                    manga.bookmarkedChapter != manga.lastChapter
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                color:
-                                manga.missingDownloads > 0  ? Colors.orange :
-                                (manga.bookmarkedChapter != manga.lastChapter ? Colors.green : Colors.black),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Row(
+                          children: [
+                            const Text('Current: '),
+                            Expanded(
+                              child: Text(
+                                manga.bookmarkedChapter,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const Text('Last: '),
+                            Expanded(
+                              child: Text(
+                                manga.lastChapter +
+                                    (manga.missingDownloads > 0
+                                        ? ' (${manga.missingDownloads})'
+                                        : ''),
+                                style: TextStyle(
+                                  fontWeight: manga.bookmarkedChapter !=
+                                          manga.lastChapter
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: manga.missingDownloads > 0
+                                      ? Colors.orange
+                                      : (manga.bookmarkedChapter !=
+                                              manga.lastChapter
+                                          ? Colors.green
+                                          : Colors.black),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Last updated: ${_formatDate(manga)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    )),
+                    PopupMenuButton(
+                      onSelected: (value) async {
+                        switch (value) {
+                          case 'delete':
+                            _deleteManga(context, manga);
+                            break;
+                          case 'download':
+                            _confirmDownload(manga);
+                            break;
+                          case 'set_bookmarked':
+                            _chooseCurrentChapter(context, manga).then((value) {
+                              _load();
+                            });
+                            break;
+                          case 'recycle':
+                            _scrubManga(manga);
+                            break;
+                          case 'refresh':
+                            _lookForNewChapters(manga);
+                            break;
+                          // default:
+                          //   throw UnimplementedError();
+                        }
+                      },
+                      itemBuilder: (context) {
+                        return [
+                          const PopupMenuItem(
+                            value: 'set_bookmarked',
+                            child: ListTile(
+                              leading: Icon(Icons.bookmark),
+                              title: Text('Select Current'),
                             ),
                           ),
-                        ],
-                      ),
-                      Text(
-                        'Last updated: ${_formatDate(manga)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  )),
-                  PopupMenuButton(
-                    onSelected: (value) async {
-                      switch (value) {
-                        case 'delete':
-                          _deleteManga(context, manga);
-                          break;
-                        case 'download':
-                          _confirmDownload(manga);
-                          break;
-                        case 'set_bookmarked':
-                          _chooseCurrentChapter(context, manga).then((value) {
-                            _load();
-                          });
-                          break;
-                        case 'recycle':
-                          _scrubManga(manga);
-                          break;
-                        case 'refresh':
-                          _lookForNewChapters(manga);
-                          break;
-                        // default:
-                        //   throw UnimplementedError();
-                      }
-                    },
-                    itemBuilder: (context) {
-                      return [
-                        const PopupMenuItem(
-                          value: 'set_bookmarked',
-                          child: ListTile(
-                            leading: Icon(Icons.bookmark),
-                            title: Text('Select Current'),
+                          const PopupMenuItem(
+                            value: 'refresh',
+                            child: ListTile(
+                              leading: Icon(Icons.refresh),
+                              title: Text('Refresh'),
+                            ),
                           ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'refresh',
-                          child: ListTile(
-                            leading: Icon(Icons.refresh),
-                            title: Text('Refresh'),
+                          PopupMenuItem(
+                            value: 'download',
+                            child: ListTile(
+                              leading: const Icon(Icons.download),
+                              title: Text(
+                                  'Download${manga.missingDownloads > 0 ? ' (${manga.missingDownloads})' : ''}'),
+                            ),
                           ),
-                        ),
-                        PopupMenuItem(
-                          value: 'download',
-                          child: ListTile(
-                            leading: const Icon(Icons.download),
-                            title: Text(
-                                'Download${manga.missingDownloads > 0 ? ' (${manga.missingDownloads})' : ''}'),
+                          const PopupMenuItem(
+                            value: 'recycle',
+                            child: ListTile(
+                              leading: Icon(Icons.recycling),
+                              title: Text('Recycle'),
+                            ),
                           ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'recycle',
-                          child: ListTile(
-                            leading: Icon(Icons.recycling),
-                            title: Text('Recycle'),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: ListTile(
+                              leading: Icon(Icons.delete),
+                              title: Text('Delete'),
+                            ),
                           ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: ListTile(
-                            leading: Icon(Icons.delete),
-                            title: Text('Delete'),
-                          ),
-                        ),
-                      ];
-                    },
-                  )
-                ],
-              )));
+                        ];
+                      },
+                    )
+                  ],
+                ))),
+          );
         },
       ),
       floatingActionButton: FloatingActionButton(
