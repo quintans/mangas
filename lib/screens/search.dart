@@ -14,7 +14,7 @@ class SearchResultModel {
   final String img;
   final String src;
   final String folder;
-  final String uploadedDate;
+  final String rating;
 
   SearchResultModel({
     required this.title,
@@ -22,7 +22,7 @@ class SearchResultModel {
     required this.img,
     required this.src,
     required this.folder,
-    required this.uploadedDate,
+    required this.rating,
   });
 }
 
@@ -56,7 +56,7 @@ class _SearchPage extends State<SearchPage> {
         img: v.img,
         src: v.src,
         folder: v.folder,
-        uploadedDate: v.updatedDate,
+        rating: v.rating,
       ));
     }
     setState(() {
@@ -116,11 +116,21 @@ class _SearchPage extends State<SearchPage> {
   }
 
   _onBookmark(SearchResultModel item) async {
+    var manga = Manga(
+        id: 0,
+        title: item.title,
+        img: item.img,
+        src: item.src,
+        scraperID: _scraperID,
+        bookmarkedChapterID: 1,
+        lastChapterID: 0,
+        folder: item.folder,
+        chapters: []);
+
     var scraper = Scrapers.getScraper(_scraperID);
-    var res = await scraper.chapters(item.src, '');
-    List<Chapter> chapters = [];
+    var res = await scraper.chapters(manga);
     for (var r in res) {
-      chapters.add(Chapter(
+      manga.addChapter(Chapter(
         id: 0,
         mangaID: 0,
         title: r.title,
@@ -132,16 +142,7 @@ class _SearchPage extends State<SearchPage> {
       ));
     }
 
-    var manga = Manga(
-        id: 0,
-        title: item.title,
-        img: item.img,
-        src: item.src,
-        scraperID: _scraperID,
-        bookmarkedChapterID: 1,
-        lastChapterID: 0,
-        folder: item.folder,
-        chapters: chapters);
+
 
     // save image to directory
     await MyFS.downloadMangaCover(_scraperID, manga.folder, manga.img);
@@ -187,7 +188,6 @@ class _SearchPage extends State<SearchPage> {
                     value: entry.key,
                     child: Text(entry.value.name()),
                   )).toList(),
-                  // items: Scrapers.getScrapers().map((key, value) => null),
                 ),
               ),
             ),
@@ -254,7 +254,7 @@ class _SearchPage extends State<SearchPage> {
                     ),
                   ),
                   Text(item.lastChapter),
-                  Text(item.uploadedDate),
+                  Text('rating: ${item.rating}'),
                 ],
               )),
               IconButton(

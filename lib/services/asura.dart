@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:mangas/models/persistence.dart';
 import 'package:mangas/models/remote.dart';
 import 'package:html/parser.dart' as parser;
@@ -5,19 +7,27 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:mangas/services/scrapers.dart';
 
-class Manganato implements Scraper{
-  static const rootURL = 'https://manganato.com';
-  static const String searchPath = "/search/story";
+class Asura implements Scraper{
+  static const rootURL = 'https://asura.gg';
+  static const String searchPath = "/?s=";
 
   @override
   String name() {
-    return 'Manganato';
+    return 'Asura';
+  }
+  
+  String _lastPath(String? url) {
+    var parts = url?.split('/');
+    if (parts?.isNotEmpty ?? false) {
+      return parts!.elementAt(parts.length - 2);
+    }
+    return '';
   }
 
   @override
   Future<List<SearchResult>> search(String query) async {
     query = query.trim();
-    var url = '$rootURL$searchPath/${query.replaceAll(' ', '_')}';
+    var url = '$rootURL$searchPath${query.replaceAll(' ', '+')}';
 
     final response = await http.Client().get(Uri.parse(url));
     if (response.statusCode != 200) {
@@ -26,25 +36,29 @@ class Manganato implements Scraper{
 
     var document = parser.parse(response.body);
     try {
-      var cards = document.getElementsByClassName('search-story-item');
+      var cards = document.getElementsByClassName('bsx');
 
       var results = <SearchResult>[];
       for (var element in cards) {
-        var img = element.getElementsByTagName('img');
-        var attrs = img[0].attributes;
-        var src = img[0].parent?.attributes['href'];
-        var folder = src?.split('/').last;
-        var rightElement = element.getElementsByClassName('item-right')[0];
-        var lastChapter = rightElement.children[1].innerHtml;
+        var anchor = element.getElementsByTagName('a')[0];
+        var src = anchor.attributes['href'];
+        String folder = _lastPath(src);
 
-        var rating = element.getElementsByClassName('item-rate')[0].innerHtml;
+        var title = anchor.attributes['title'];
+
+        var img = anchor.getElementsByTagName('img')[0];
+
+        var chapterElement = anchor.getElementsByClassName('epxs')[0];
+        var lastChapter = chapterElement.innerHtml;
+        var ratingElement = anchor.getElementsByClassName('numscore')[0];
+        var rating = ratingElement.innerHtml;
 
         results.add(SearchResult(
-            title: attrs["alt"] ?? '',
+            title: title ?? 'n/a',
             lastChapter: lastChapter,
-            img: attrs["src"] ?? '',
+            img: img.attributes["src"] ?? '',
             src: src ?? '',
-            folder: folder ?? '',
+            folder: folder,
             rating: rating,
         ));
       }
@@ -63,7 +77,7 @@ class Manganato implements Scraper{
     if (chapters.isNotEmpty) {
       fromChapterSrc = chapters.last.src;
     }
-
+    
     final response = await http.Client().get(Uri.parse(mangaSrc));
     if (response.statusCode != 200) {
       throw Exception('Failed to load $mangaSrc: HTTP ${response.statusCode}');
@@ -71,31 +85,33 @@ class Manganato implements Scraper{
 
     var document = parser.parse(response.body);
     try {
-      var anchors = document.getElementsByClassName('chapter-name');
+      var chapters = document.getElementsByClassName('chbox');
       var results = <ChapterResult>[];
 
-      for (var element in anchors) {
-        var src = element.attributes['href'];
+      for (var element in chapters) {
+        var src = element.getElementsByTagName('a')[0].attributes['href'];
         if (fromChapterSrc == src) {
           break;
         }
 
-        var title = element.innerHtml;
-        var dateString =
-            element.nextElementSibling?.nextElementSibling?.attributes['title'];
+        var title = element.getElementsByClassName('chapternum')[0].innerHtml;
+        var dateString = element.getElementsByClassName('chapterdate')[0].innerHtml;
         DateTime timestamp;
         try {
-          DateFormat format = DateFormat("MMM dd,yyyy HH:mm");
+          DateFormat format = DateFormat("MMM dd, yyyy");
           timestamp = format.parse(dateString!);
         } catch (e) {
           timestamp = DateTime.now();
         }
 
+        var folder = _lastPath(src);
+        folder = folder.replaceAll(manga.folder, '');
+
         results.add(
             ChapterResult(
                 title: title,
                 src: src ?? '',
-                folder: src?.split('/').last ?? '',
+                folder: folder,
                 uploadedAt: timestamp,
             ));
       }
@@ -116,12 +132,12 @@ class Manganato implements Scraper{
     var document = parser.parse(response.body);
     try {
       var container =
-          document.getElementsByClassName('container-chapter-reader');
+          document.getElementsByClassName('rdminimal');
       var results = <String>[];
 
       for (var element in container[0].getElementsByTagName('img')) {
         var src = element.attributes['src'];
-        if (src != null) {
+        if (src != null && src.startsWith(rootURL)) {
           results.add(src);
         }
       }

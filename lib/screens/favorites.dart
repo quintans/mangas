@@ -39,11 +39,13 @@ class _FavoritesPage extends State<FavoritesPage> {
 
   Future<void> _load() async {
     var prefs = await SharedPreferences.getInstance();
+    /*
     var current = prefs.getInt(_currentReadKey);
     if (current != null) {
       _readManga(current);
       return;
     }
+     */
 
     var last = prefs.getInt(_lastReadKey);
 
@@ -247,7 +249,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     for (var m in mng) {
       var scraper = Scrapers.getScraper(m.scraperID);
       var last = m.getChapters().last;
-      var newChapters = await scraper.chapters(m.src, last.src);
+      var newChapters = await scraper.chapters(m);
       for (var r in newChapters) {
         m.addChapter(Chapter(
           id: 0,
@@ -475,8 +477,8 @@ class _FavoritesPage extends State<FavoritesPage> {
                         if (snapshot.hasData) {
                           return Image.file(
                             snapshot.requireData,
-                            height: 90,
-                            width: 61,
+                            height: 108,
+                            width: 73,
                           );
                         } else if (snapshot.hasError) {
                           return Image.asset(
@@ -548,6 +550,13 @@ class _FavoritesPage extends State<FavoritesPage> {
                         ),
                         Text(
                           'Last updated: ${_formatDate(manga)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        Text(
+                          'source: ${manga.scraperID}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontStyle: FontStyle.italic,

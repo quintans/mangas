@@ -1,7 +1,7 @@
 class SearchResult {
   final String title;
   final String lastChapter;
-  final String updatedDate;
+  final String rating;
   final String img;
   final String src;
   final String folder;
@@ -11,7 +11,7 @@ class SearchResult {
     required this.lastChapter,
     required this.img,
     required this.src,
-    required this.updatedDate,
+    required this.rating,
     required this.folder,
   });
 }

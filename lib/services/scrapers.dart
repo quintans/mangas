@@ -1,8 +1,13 @@
+import 'package:mangas/models/persistence.dart';
 import 'package:mangas/models/remote.dart';
 import 'package:mangas/services/manganato.dart';
+import 'package:mangas/services/asura.dart';
 
 class Scrapers {
-  static final Map<String, Scraper> _scrapers =  { "manganato": Manganato()};
+  static final Map<String, Scraper> _scrapers =  {
+    "asura": Asura(),
+    "manganato": Manganato(),
+  };
 
   static Map<String, Scraper> getScrapers() {
     return _scrapers;
@@ -22,7 +27,7 @@ abstract class Scraper {
     throw Exception('search is unimplemented');
   }
 
-  Future<List<ChapterResult>> chapters(String mangaSrc, String fromChapterSrc) async {
+  Future<List<ChapterResult>> chapters(Manga manga) async {
     throw Exception('chapters is unimplemented');
   }
 
