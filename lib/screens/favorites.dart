@@ -39,13 +39,11 @@ class _FavoritesPage extends State<FavoritesPage> {
 
   Future<void> _load() async {
     var prefs = await SharedPreferences.getInstance();
-    /*
     var current = prefs.getInt(_currentReadKey);
     if (current != null) {
       _readManga(current);
       return;
     }
-     */
 
     var last = prefs.getInt(_lastReadKey);
 
