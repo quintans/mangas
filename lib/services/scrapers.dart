@@ -23,6 +23,10 @@ abstract class Scraper {
     throw Exception('name is unimplemented');
   }
 
+  Map<String, String>? headers() {
+    throw Exception('name is unimplemented');
+  }
+
   Future<List<SearchResult>> search(String query) async {
     throw Exception('search is unimplemented');
   }
@@ -34,4 +38,5 @@ abstract class Scraper {
   Future<List<String>> chapterImages(String chapterSrc) async {
     throw Exception('chapterImages is unimplemented');
   }
+
 }

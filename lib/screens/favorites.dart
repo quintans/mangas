@@ -208,9 +208,10 @@ class _FavoritesPage extends State<FavoritesPage> {
       List<Future<File>> futures = [];
       for (var i = 0; i < imgs.length; i++) {
         var f = MyFS.downloadChapterImages(
-            manga.scraperID, manga.folder, ch.folder, i, imgs[i]);
+            manga.scraperID, manga.folder, ch.folder, i, imgs[i], scraper.headers());
         futures.add(f);
       }
+
       await Future.wait(futures);
       ch.markDownloaded(imgs.length);
       await DatabaseHelper.db.updateManga(manga);

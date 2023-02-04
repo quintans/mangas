@@ -1,3 +1,6 @@
+import 'dart:collection';
+import 'dart:io';
+
 import 'package:mangas/models/persistence.dart';
 import 'package:mangas/models/remote.dart';
 import 'package:html/parser.dart' as parser;
@@ -8,6 +11,9 @@ import 'package:mangas/services/scrapers.dart';
 class Manganato implements Scraper{
   static const rootURL = 'https://manganato.com';
   static const String searchPath = "/search/story";
+
+  static const String referer = "https://readmanganato.com/";
+  static const timeLimit = Duration(seconds: 5);
 
   @override
   String name() {
@@ -64,7 +70,7 @@ class Manganato implements Scraper{
       fromChapterSrc = chapters.last.src;
     }
 
-    final response = await http.Client().get(Uri.parse(mangaSrc));
+    final response = await http.Client().get(Uri.parse(mangaSrc)).timeout(timeLimit);
     if (response.statusCode != 200) {
       throw Exception('Failed to load $mangaSrc: HTTP ${response.statusCode}');
     }
@@ -130,5 +136,10 @@ class Manganato implements Scraper{
     } catch (e) {
       throw Exception('Failed to parse $chapterSrc: $e');
     }
+  }
+
+  @override
+  Map<String, String>? headers() {
+    return {HttpHeaders.refererHeader: referer};
   }
 }

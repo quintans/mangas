@@ -11,6 +11,8 @@ class Asura implements Scraper{
   static const rootURL = 'https://asura.gg';
   static const String searchPath = "/?s=";
 
+  static const timeLimit = Duration(seconds: 5);
+
   @override
   String name() {
     return 'Asura';
@@ -29,7 +31,7 @@ class Asura implements Scraper{
     query = query.trim();
     var url = '$rootURL$searchPath${query.replaceAll(' ', '+')}';
 
-    final response = await http.Client().get(Uri.parse(url));
+    final response = await http.Client().get(Uri.parse(url)).timeout(timeLimit);
     if (response.statusCode != 200) {
       throw Exception('Failed to load $url: HTTP ${response.statusCode}');
     }
@@ -137,7 +139,7 @@ class Asura implements Scraper{
 
       for (var element in container[0].getElementsByTagName('img')) {
         var src = element.attributes['src'];
-        if (src != null && src.startsWith(rootURL)) {
+        if (src != null) {
           results.add(src);
         }
       }
@@ -146,5 +148,10 @@ class Asura implements Scraper{
     } catch (e) {
       throw Exception('Failed to parse $chapterSrc: $e');
     }
+  }
+
+  @override
+  Map<String, String>? headers() {
+    return null;
   }
 }

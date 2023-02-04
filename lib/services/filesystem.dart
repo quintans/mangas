@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 class MyFS {
-  static const String referer = "https://readmanganato.com/";
-
   static late Directory docDir;
 
   static init() async {
@@ -32,12 +30,10 @@ class MyFS {
   }
 
   static Future<File> downloadChapterImages(
-      String scraperID, String mangaSrc, String chapterSrc, int index, String img) async {
+      String scraperID, String mangaSrc, String chapterSrc, int index, String img, Map<String, String>? headers) async {
     var res = await http.get(
       Uri.parse(img),
-      headers: {
-        HttpHeaders.refererHeader: referer,
-      },
+      headers: headers,
     );
     await Directory(join([mangasFolder(scraperID), mangaSrc, chapterSrc]))
         .create(recursive: true);
