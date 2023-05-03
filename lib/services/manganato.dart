@@ -12,7 +12,6 @@ class Manganato implements Scraper{
   static const String searchPath = "/search/story";
 
   static const String referer = "https://readmanganato.com/";
-  static const timeLimit = Duration(seconds: 5);
 
   @override
   String name() {
@@ -24,7 +23,7 @@ class Manganato implements Scraper{
     query = query.trim();
     var url = '$rootURL$searchPath/${query.replaceAll(' ', '_')}';
 
-    final response = await http.Client().get(Uri.parse(url)).timeout(timeLimit);
+    final response = await http.Client().get(Uri.parse(url));
     if (response.statusCode != 200) {
       throw Exception('Failed to load $url: HTTP ${response.statusCode}');
     }
@@ -69,7 +68,7 @@ class Manganato implements Scraper{
       fromChapterSrc = chapters.last.src;
     }
 
-    final response = await http.Client().get(Uri.parse(mangaSrc)).timeout(timeLimit);
+    final response = await http.Client().get(Uri.parse(mangaSrc));
     if (response.statusCode != 200) {
       throw Exception('Failed to load $mangaSrc: HTTP ${response.statusCode}');
     }

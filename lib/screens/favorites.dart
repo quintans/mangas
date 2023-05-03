@@ -30,6 +30,8 @@ class _FavoritesPage extends State<FavoritesPage> {
   final String _currentReadKey = 'current_read';
   static const int _downloadThreshold = 10;
 
+  static const timeLimit = Duration(seconds: 5);
+
   List<MangaView> mangas = [];
   int _lastRead = -1;
 
@@ -220,11 +222,14 @@ class _FavoritesPage extends State<FavoritesPage> {
 
         ch.markDownloaded(imgs.length);
         await DatabaseHelper.db.updateManga(manga);
-        pd.update(value: ++count);
 
       } on TimeoutException catch (_) {
-        snack.show('Failed to download chapter ${manga.title}/${ch.title}');
+        snack.show('Timeout downloading "${manga.title}/${ch.title}"');
+      } catch (e) {
+        snack.show('Failed for "${manga.title}/${ch.title}": $e');
       }
+
+      pd.update(value: ++count);
     }
     return count;
   }
@@ -258,7 +263,7 @@ class _FavoritesPage extends State<FavoritesPage> {
       var scraper = Scrapers.getScraper(m.scraperID);
 
       try {
-        var newChapters = await scraper.chapters(m);
+        var newChapters = await scraper.chapters(m).timeout(timeLimit);
 
         for (var r in newChapters) {
           m.addChapter(Chapter(
@@ -275,9 +280,10 @@ class _FavoritesPage extends State<FavoritesPage> {
         if (newChapters.isNotEmpty) {
           await DatabaseHelper.db.updateManga(m);
         }
-
       } on TimeoutException catch (_) {
-        snack.show('Timed out while looking for new chapters for ${m.title}');
+        snack.show('Timed out while looking for new chapters for "${m.title}"');
+      } catch (e) {
+        snack.show('Failed for "${m.title}": $e');
       }
 
       pd.update(value: ++count);
