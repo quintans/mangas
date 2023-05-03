@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -14,6 +15,8 @@ import '../models/persistence.dart';
 import 'package:intl/intl.dart';
 import 'package:sn_progress_dialog/sn_progress_dialog.dart';
 import 'package:path/path.dart';
+
+const downloadTimeLimit = Duration(seconds: 15);
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({Key? key}) : super(key: key);
@@ -164,7 +167,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
     var count = 0;
     for (var m in mangas) {
-      count = await _downloadChapters(pd, m, count);
+      count = await _downloadChapters(snack, pd, m, count);
     }
 
     await _load();
@@ -191,7 +194,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     var manga = await DatabaseHelper.db.getManga(mangaID);
     var chapters = manga!.getChaptersToDownload();
     pd.show(max: chapters.length, msg: 'Chapter Downloading...');
-    await _downloadChapters(pd, manga, 0);
+    await _downloadChapters(snack, pd, manga, 0);
     pd.close();
 
     await _load();
@@ -199,7 +202,7 @@ class _FavoritesPage extends State<FavoritesPage> {
   }
 
   Future<int> _downloadChapters(
-      ProgressDialog pd, Manga manga, int count) async {
+    Snack snack, ProgressDialog pd, Manga manga, int count) async {
     var chapters = manga.getChaptersToDownload();
 
     var scraper = Scrapers.getScraper(manga.scraperID);
@@ -212,10 +215,16 @@ class _FavoritesPage extends State<FavoritesPage> {
         futures.add(f);
       }
 
-      await Future.wait(futures);
-      ch.markDownloaded(imgs.length);
-      await DatabaseHelper.db.updateManga(manga);
-      pd.update(value: ++count);
+      try {
+        await Future.wait(futures).timeout(downloadTimeLimit);
+
+        ch.markDownloaded(imgs.length);
+        await DatabaseHelper.db.updateManga(manga);
+        pd.update(value: ++count);
+
+      } on TimeoutException catch (_) {
+        snack.show('Failed to download chapter ${manga.title}/${ch.title}');
+      }
     }
     return count;
   }
@@ -247,23 +256,30 @@ class _FavoritesPage extends State<FavoritesPage> {
     var count = 0;
     for (var m in mng) {
       var scraper = Scrapers.getScraper(m.scraperID);
-      var last = m.getChapters().last;
-      var newChapters = await scraper.chapters(m);
-      for (var r in newChapters) {
-        m.addChapter(Chapter(
-          id: 0,
-          mangaID: 0,
-          title: r.title,
-          src: r.src,
-          uploadedAt: r.uploadedAt,
-          downloaded: false,
-          imgCnt: 0,
-          folder: r.folder,
-        ));
+
+      try {
+        var newChapters = await scraper.chapters(m);
+
+        for (var r in newChapters) {
+          m.addChapter(Chapter(
+            id: 0,
+            mangaID: 0,
+            title: r.title,
+            src: r.src,
+            uploadedAt: r.uploadedAt,
+            downloaded: false,
+            imgCnt: 0,
+            folder: r.folder,
+          ));
+        }
+        if (newChapters.isNotEmpty) {
+          await DatabaseHelper.db.updateManga(m);
+        }
+
+      } on TimeoutException catch (_) {
+        snack.show('Timed out while looking for new chapters for ${m.title}');
       }
-      if (newChapters.isNotEmpty) {
-        await DatabaseHelper.db.updateManga(m);
-      }
+
       pd.update(value: ++count);
     }
     snack.show('Finished looking for new chapters');

@@ -80,7 +80,7 @@ class Asura implements Scraper{
       fromChapterSrc = chapters.last.src;
     }
     
-    final response = await http.Client().get(Uri.parse(mangaSrc));
+    final response = await http.Client().get(Uri.parse(mangaSrc)).timeout(timeLimit);
     if (response.statusCode != 200) {
       throw Exception('Failed to load $mangaSrc: HTTP ${response.statusCode}');
     }

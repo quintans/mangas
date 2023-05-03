@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:io';
 
 import 'package:mangas/models/persistence.dart';
@@ -25,7 +24,7 @@ class Manganato implements Scraper{
     query = query.trim();
     var url = '$rootURL$searchPath/${query.replaceAll(' ', '_')}';
 
-    final response = await http.Client().get(Uri.parse(url));
+    final response = await http.Client().get(Uri.parse(url)).timeout(timeLimit);
     if (response.statusCode != 200) {
       throw Exception('Failed to load $url: HTTP ${response.statusCode}');
     }
