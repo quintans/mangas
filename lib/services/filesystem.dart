@@ -1,7 +1,6 @@
-import 'dart:developer';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:dio/dio.dart';
 
 class MyFS {
   static late Directory docDir;
@@ -14,33 +13,47 @@ class MyFS {
     return join([docDir.path, 'mangas', scraperID]);
   }
 
-  static Future<File> downloadMangaCover(String scraperID, String src, String img) async {
-    var res = await http.get(Uri.parse(img));
+  static Future<File> downloadMangaCover(Dio dioClient, String scraperID, String src, String img) async {
     await Directory(join([mangasFolder(scraperID), src])).create(recursive: true);
     File file = File(join([mangasFolder(scraperID), src, 'cover.jpg']));
-    return file.writeAsBytes(res.bodyBytes);
+
+    await dioClient.download(
+      img,
+      file.path,
+    );
+    return file;
   }
 
-  static Future<File> loadMangaCover(String scraperID, String src, String img) async {
+  static Future<File> loadMangaCover(Dio dioClient, String scraperID, String src, String img) async {
     File file = File(join([mangasFolder(scraperID), src, 'cover.jpg']));
     if (file.existsSync()) {
       return file;
     }
-    return downloadMangaCover(scraperID, src, img);
+    var fileDwn = await downloadMangaCover(dioClient, scraperID, src, img);
+    return fileDwn;
   }
 
-  static Future<File> downloadChapterImages(
-      String scraperID, String mangaSrc, String chapterSrc, int index, String img, Map<String, String>? headers) async {
-    var res = await http.get(
-      Uri.parse(img),
-      headers: headers,
-    );
+  static Future downloadChapterImages (
+      Dio dioClient,
+      String scraperID,
+      String mangaSrc,
+      String chapterSrc,
+      int index,
+      String img,
+      Map<String, String>? headers
+      ) async {
     await Directory(join([mangasFolder(scraperID), mangaSrc, chapterSrc]))
         .create(recursive: true);
     var idx = index.toString().padLeft(3, '0');
     File file = File(
         join([mangasFolder(scraperID), mangaSrc, chapterSrc, '$chapterSrc-$idx.jpg']));
-    return file.writeAsBytes(res.bodyBytes);
+    await dioClient.download(
+      img,
+      file.path,
+      options: Options(
+          headers: headers,
+      ),
+    );
   }
 
   static File loadChapterImage(
@@ -53,6 +66,7 @@ class MyFS {
     }
     throw Exception('$file not found');
   }
+
   static deleteMangas() {
     var dir = Directory(join([docDir.path, 'mangas']));
     if (dir.existsSync()) {

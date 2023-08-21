@@ -7,6 +7,7 @@ import 'package:mangas/services/persistence.dart';
 import 'package:mangas/services/scrapers.dart';
 import 'package:mangas/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 
 class SearchResultModel {
   final String title;
@@ -145,7 +146,7 @@ class _SearchPage extends State<SearchPage> {
 
 
     // save image to directory
-    await MyFS.downloadMangaCover(_scraperID, manga.folder, manga.img);
+    await MyFS.downloadMangaCover(Dio(), _scraperID, manga.folder, manga.img);
     await DatabaseHelper.db.insertManga(manga);
 
     setState(() {
