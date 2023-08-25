@@ -18,7 +18,7 @@ import 'package:sn_progress_dialog/sn_progress_dialog.dart';
 import 'package:path/path.dart';
 import 'package:dio/dio.dart';
 
-const downloadTimeLimit = Duration(seconds: 30);
+const downloadTimeLimit = Duration(seconds: 20);
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({Key? key}) : super(key: key);
@@ -166,14 +166,16 @@ class _FavoritesPage extends State<FavoritesPage> {
   _downloadAllMissingChaptersFromBookmarked(int missingDownloads) async {
     var snack = Snack(context: this.context);
     final ProgressDialog pd = ProgressDialog(context: this.context);
-
-    var mangas = await DatabaseHelper.db.getMangas();
-    pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
-    var count = 0;
-    for (var m in mangas) {
-      count = await _downloadChapters(snack, pd, m, count);
+    try {
+      var mangas = await DatabaseHelper.db.getMangas();
+      pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
+      var count = 0;
+      for (var m in mangas) {
+        count = await _downloadChapters(snack, pd, m, count);
+      }
+    } finally {
+      pd.close();
     }
-
     await _load();
     snack.show("Finished Downloading");
   }
@@ -197,9 +199,12 @@ class _FavoritesPage extends State<FavoritesPage> {
 
     var manga = await DatabaseHelper.db.getManga(mangaID);
     var chapters = manga!.getChaptersToDownload();
-    pd.show(max: chapters.length, msg: 'Chapter Downloading...');
-    await _downloadChapters(snack, pd, manga, 0);
-    pd.close();
+    pd.show(max: chapters.length, msg: manga.title);
+    try {
+      await _downloadChapters(snack, pd, manga, 0);
+    } finally {
+      pd.close();
+    }
 
     await _load();
     snack.show("Finished Downloading");
@@ -210,6 +215,9 @@ class _FavoritesPage extends State<FavoritesPage> {
     var chapters = manga.getChaptersToDownload();
     final dioClient = Dio();
 
+    var chCnt = 1;
+    var msg = "($chCnt/${chapters.length}) ${manga.title}";
+    pd.update(value: count, msg: msg);
     try {
       var scraper = Scrapers.getScraper(manga.scraperID);
       for (var ch in chapters) {
@@ -233,8 +241,19 @@ class _FavoritesPage extends State<FavoritesPage> {
           snack.show('Failed for "${manga.title}/${ch.title}": $e');
         }
 
-        pd.update(value: ++count);
+        chCnt++;
+        count++;
+        msg = "($chCnt/${chapters.length}) ${manga.title}";
+        pd.update(value: count, msg: msg);
       }
+    } catch (e) {
+      final snackBar = SnackBar(
+        duration: const Duration(days: 1),
+        backgroundColor: Colors.red,
+        showCloseIcon: true,
+        content: Text('ERROR on ($chCnt/${chapters.length}) ${manga.title}: $e'),
+      );
+      ScaffoldMessenger.of(this.context).showSnackBar(snackBar);
     } finally {
       dioClient.close();
     }
