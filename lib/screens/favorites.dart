@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -7,6 +8,7 @@ import 'package:mangas/services/navigation_service.dart';
 import 'package:mangas/services/persistence.dart';
 import 'package:mangas/services/scrapers.dart';
 import 'package:mangas/utils/utils.dart';
+import 'package:native_dio_adapter/native_dio_adapter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import './search.dart';
 import './reader.dart';
@@ -14,6 +16,9 @@ import '../models/persistence.dart';
 import 'package:intl/intl.dart';
 import 'package:sn_progress_dialog/sn_progress_dialog.dart';
 import 'package:path/path.dart';
+import 'package:dio/dio.dart';
+
+const downloadTimeLimit = Duration(seconds: 20);
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({Key? key}) : super(key: key);
@@ -26,6 +31,8 @@ class _FavoritesPage extends State<FavoritesPage> {
   final String _lastReadKey = 'last_read';
   final String _currentReadKey = 'current_read';
   static const int _downloadThreshold = 10;
+
+  static const timeLimit = Duration(seconds: 5);
 
   List<MangaView> mangas = [];
   int _lastRead = -1;
@@ -159,14 +166,16 @@ class _FavoritesPage extends State<FavoritesPage> {
   _downloadAllMissingChaptersFromBookmarked(int missingDownloads) async {
     var snack = Snack(context: this.context);
     final ProgressDialog pd = ProgressDialog(context: this.context);
-
-    var mangas = await DatabaseHelper.db.getMangas();
-    pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
-    var count = 0;
-    for (var m in mangas) {
-      count = await _downloadChapters(pd, m, count);
+    try {
+      var mangas = await DatabaseHelper.db.getMangas();
+      pd.show(max: missingDownloads, msg: 'Chapter Downloading...');
+      var count = 0;
+      for (var m in mangas) {
+        count = await _downloadChapters(snack, pd, m, count);
+      }
+    } finally {
+      pd.close();
     }
-
     await _load();
     snack.show("Finished Downloading");
   }
@@ -190,33 +199,65 @@ class _FavoritesPage extends State<FavoritesPage> {
 
     var manga = await DatabaseHelper.db.getManga(mangaID);
     var chapters = manga!.getChaptersToDownload();
-    pd.show(max: chapters.length, msg: 'Chapter Downloading...');
-    await _downloadChapters(pd, manga, 0);
-    pd.close();
+    pd.show(max: chapters.length, msg: manga.title);
+    try {
+      await _downloadChapters(snack, pd, manga, 0);
+    } finally {
+      pd.close();
+    }
 
     await _load();
     snack.show("Finished Downloading");
   }
 
   Future<int> _downloadChapters(
-      ProgressDialog pd, Manga manga, int count) async {
+    Snack snack, ProgressDialog pd, Manga manga, int count) async {
     var chapters = manga.getChaptersToDownload();
+    final dioClient = Dio();
 
-    var scraper = Scrapers.getScraper(manga.scraperID);
-    for (var ch in chapters) {
-      var imgs = await scraper.chapterImages(ch.src);
-      List<Future<File>> futures = [];
-      for (var i = 0; i < imgs.length; i++) {
-        var f = MyFS.downloadChapterImages(
-            manga.scraperID, manga.folder, ch.folder, i, imgs[i], scraper.headers());
-        futures.add(f);
+    var chCnt = 1;
+    var msg = "($chCnt/${chapters.length}) ${manga.title}";
+    pd.update(value: count, msg: msg);
+    try {
+      var scraper = Scrapers.getScraper(manga.scraperID);
+      for (var ch in chapters) {
+        var imgs = await scraper.chapterImages(ch.src);
+        List<Future> futures = [];
+        for (var i = 0; i < imgs.length; i++) {
+          var f = MyFS.downloadChapterImages(
+              dioClient, manga.scraperID, manga.folder, ch.folder, i, imgs[i], scraper.headers());
+          futures.add(f);
+        }
+
+        try {
+          await Future.wait(futures).timeout(downloadTimeLimit);
+
+          ch.markDownloaded(imgs.length);
+          await DatabaseHelper.db.updateManga(manga);
+
+        } on TimeoutException catch (_) {
+          snack.show('Timeout downloading "${manga.title}/${ch.title}"');
+        } catch (e) {
+          snack.show('Failed for "${manga.title}/${ch.title}": $e');
+        }
+
+        chCnt++;
+        count++;
+        msg = "($chCnt/${chapters.length}) ${manga.title}";
+        pd.update(value: count, msg: msg);
       }
-
-      await Future.wait(futures);
-      ch.markDownloaded(imgs.length);
-      await DatabaseHelper.db.updateManga(manga);
-      pd.update(value: ++count);
+    } catch (e) {
+      final snackBar = SnackBar(
+        duration: const Duration(days: 1),
+        backgroundColor: Colors.red,
+        showCloseIcon: true,
+        content: Text('ERROR on ($chCnt/${chapters.length}) ${manga.title}: $e'),
+      );
+      ScaffoldMessenger.of(this.context).showSnackBar(snackBar);
+    } finally {
+      dioClient.close();
     }
+
     return count;
   }
 
@@ -247,23 +288,31 @@ class _FavoritesPage extends State<FavoritesPage> {
     var count = 0;
     for (var m in mng) {
       var scraper = Scrapers.getScraper(m.scraperID);
-      var last = m.getChapters().last;
-      var newChapters = await scraper.chapters(m);
-      for (var r in newChapters) {
-        m.addChapter(Chapter(
-          id: 0,
-          mangaID: 0,
-          title: r.title,
-          src: r.src,
-          uploadedAt: r.uploadedAt,
-          downloaded: false,
-          imgCnt: 0,
-          folder: r.folder,
-        ));
+
+      try {
+        var newChapters = await scraper.chapters(m).timeout(timeLimit);
+
+        for (var r in newChapters) {
+          m.addChapter(Chapter(
+            id: 0,
+            mangaID: 0,
+            title: r.title,
+            src: r.src,
+            uploadedAt: r.uploadedAt,
+            downloaded: false,
+            imgCnt: 0,
+            folder: r.folder,
+          ));
+        }
+        if (newChapters.isNotEmpty) {
+          await DatabaseHelper.db.updateManga(m);
+        }
+      } on TimeoutException catch (_) {
+        snack.show('Timed out while looking for new chapters for "${m.title}"');
+      } catch (e) {
+        snack.show('Failed for "${m.title}": $e');
       }
-      if (newChapters.isNotEmpty) {
-        await DatabaseHelper.db.updateManga(m);
-      }
+
       pd.update(value: ++count);
     }
     snack.show('Finished looking for new chapters');
@@ -343,9 +392,14 @@ class _FavoritesPage extends State<FavoritesPage> {
       if (ok) {
         MyFS.deleteMangas();
         var mangas = await DatabaseHelper.db.getMangas();
-        for (var manga in mangas) {
-          await MyFS.downloadMangaCover(
-              manga.scraperID, manga.folder, manga.img);
+        final dio = Dio();
+        try {
+          for (var manga in mangas) {
+            await MyFS.downloadMangaCover(
+                dio, manga.scraperID, manga.folder, manga.img);
+          }
+        } finally {
+          dio.close();
         }
         snack.show('Database imported from $impFile');
       } else {
@@ -470,7 +524,7 @@ class _FavoritesPage extends State<FavoritesPage> {
                     ),
                     FutureBuilder<File>(
                       future: MyFS.loadMangaCover(
-                          manga.scraperID, manga.folder, manga.img),
+                          Dio(), manga.scraperID, manga.folder, manga.img),
                       builder:
                           (BuildContext context, AsyncSnapshot<File> snapshot) {
                         if (snapshot.hasData) {
