@@ -29,7 +29,6 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPage extends State<FavoritesPage> {
   final String _lastReadKey = 'last_read';
-  final String _currentReadKey = 'current_read';
   static const int _downloadThreshold = 10;
 
   static const timeLimit = Duration(seconds: 5);
@@ -46,11 +45,6 @@ class _FavoritesPage extends State<FavoritesPage> {
 
   Future<void> _load() async {
     var prefs = await SharedPreferences.getInstance();
-    var current = prefs.getInt(_currentReadKey);
-    if (current != null) {
-      _readManga(current);
-      return;
-    }
 
     var last = prefs.getInt(_lastReadKey);
 
@@ -66,14 +60,12 @@ class _FavoritesPage extends State<FavoritesPage> {
   _readManga(int mangaID) async {
     var prefs = await SharedPreferences.getInstance();
     prefs.setInt(_lastReadKey, mangaID);
-    prefs.setInt(_currentReadKey, mangaID);
 
     DatabaseHelper.db.getManga(mangaID).then((value) => NavigationService()
             .navigateToScreen(ReaderPage(
           manga: value!,
         ))
             .then((value) {
-          prefs.remove(_currentReadKey);
           _load();
         }));
   }
