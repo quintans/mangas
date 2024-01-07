@@ -73,9 +73,9 @@ class Asura implements Scraper{
   Future<List<ChapterResult>> chapters(Manga manga) async {
     String mangaSrc = manga.src;
     var chapters = manga.getChapters();
-    var fromChapterSrc = '';
+    var fromChapterTitle = '';
     if (chapters.isNotEmpty) {
-      fromChapterSrc = chapters.last.src;
+      fromChapterTitle = chapters.last.title;
     }
     
     final response = await http.Client().get(Uri.parse(mangaSrc));
@@ -89,12 +89,12 @@ class Asura implements Scraper{
       var results = <ChapterResult>[];
 
       for (var element in chapters) {
-        var src = element.getElementsByTagName('a')[0].attributes['href'];
-        if (fromChapterSrc == src) {
+        var title = element.getElementsByClassName('chapternum')[0].innerHtml;
+        if (fromChapterTitle == title) {
           break;
         }
 
-        var title = element.getElementsByClassName('chapternum')[0].innerHtml;
+        var src = element.getElementsByTagName('a')[0].attributes['href'];
         var dateString = element.getElementsByClassName('chapterdate')[0].innerHtml;
         DateTime timestamp;
         try {

@@ -1,4 +1,6 @@
+import 'dart:developer';
 import 'dart:io';
+import 'dart:math';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mangas/models/persistence.dart';
 import 'package:path/path.dart';
@@ -68,8 +70,7 @@ class DatabaseHelper {
       await targetFile.delete();
     }
 
-    if (await Permission.storage.request().isGranted &&
-        await Permission.accessMediaLocation.request().isGranted &&
+    if (await Permission.accessMediaLocation.request().isGranted &&
         await Permission.manageExternalStorage.request().isGranted) {
       await sourceFile.copy(targetFile.path);
       return true;
@@ -144,6 +145,19 @@ class DatabaseHelper {
         where: '$_mgID = ?',
         whereArgs: [manga.id],
       );
+      var maxID = 0;
+      for (var ch in manga.chapters) {
+        if (ch.isNew()) {
+          maxID = ch.id;
+          break;
+        }
+      }
+      if (maxID != 0) {
+        await txn.delete(_chTable,
+          where: '$_chMangaID = ? AND $_chID >= ?',
+          whereArgs: [manga.id, maxID],
+        );
+      }
       for (var ch in manga.chapters) {
         if (ch.isNew()) {
           ch.mangaID = manga.id;
@@ -208,11 +222,31 @@ class DatabaseHelper {
     return mangas;
   }
 
-  Future<List<MangaView>> getMangaReadingOrder() async {
+  Future<List<MangaView>> getMangaReadingOrder(bool sortByName) async {
     final db = await database;
     List<MangaView> mangas = [];
-    final List<Map<String, Object?>> unread = await db!.rawQuery(
-        '''SELECT m.*, v.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
+
+    if (sortByName) {
+      // final List<Map<String, Object?>> read = await db!.rawQuery('''SELECT m.*, c.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
+      //   (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download,
+      //   (SELECT c.$_chTitle FROM $_chTable c WHERE c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgBookmarkedChapterID)  AS bm_title,
+      //   (SELECT c.$_chTitle FROM $_chTable c WHERE c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID)  AS last_title,
+      //      FROM $_mgTable m
+      //      LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID
+      //      ORDER BY m.$_mgTitle ASC''');
+      final List<Map<String, Object?>> recs = await db!.rawQuery('''SELECT m.*, v.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
+        (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
+           FROM $_mgTable m
+           LEFT JOIN $_chTable v ON v.$_chMangaID = m.$_mgID AND v.$_chID = m.$_mgBookmarkedChapterID
+           LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID
+           ORDER BY m.$_mgTitle ASC''');
+      for (var e in recs) {
+        mangas.add(_toMangaView(e));
+      }
+      return mangas;
+    }
+
+    final List<Map<String, Object?>> unread = await db!.rawQuery('''SELECT m.*, v.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
         (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
            LEFT JOIN $_chTable v ON v.$_chMangaID = m.$_mgID AND v.$_chID = m.$_mgBookmarkedChapterID
@@ -222,8 +256,8 @@ class DatabaseHelper {
     for (var e in unread) {
       mangas.add(_toMangaView(e));
     }
-    final List<Map<String, Object?>> read = await db.rawQuery(
-        '''SELECT m.*, c.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
+
+    final List<Map<String, Object?>> read = await db.rawQuery('''SELECT m.*, c.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
         (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
            LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID

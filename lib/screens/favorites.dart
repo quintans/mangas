@@ -8,7 +8,6 @@ import 'package:mangas/services/navigation_service.dart';
 import 'package:mangas/services/persistence.dart';
 import 'package:mangas/services/scrapers.dart';
 import 'package:mangas/utils/utils.dart';
-import 'package:native_dio_adapter/native_dio_adapter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import './search.dart';
 import './reader.dart';
@@ -29,12 +28,14 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPage extends State<FavoritesPage> {
   final String _lastReadKey = 'last_read';
+  final String _sortByNameKey = 'sort_by_name';
   static const int _downloadThreshold = 10;
 
   static const timeLimit = Duration(seconds: 5);
 
   List<MangaView> mangas = [];
   int _lastRead = -1;
+  bool _sortByName = false;
 
   @override
   void initState() {
@@ -46,15 +47,26 @@ class _FavoritesPage extends State<FavoritesPage> {
   Future<void> _load() async {
     var prefs = await SharedPreferences.getInstance();
 
-    var last = prefs.getInt(_lastReadKey);
+    var last = prefs.getInt(_lastReadKey) ?? -1;
+    var sort = prefs.getBool(_sortByNameKey) ?? false;
 
-    DatabaseHelper.db.getMangaReadingOrder().then((value) {
+    DatabaseHelper.db.getMangaReadingOrder(sort).then((value) {
       // check if file exists in FS
       setState(() {
         mangas = value;
-        _lastRead = last ?? -1;
+        _lastRead = last;
+        _sortByName = sort;
       });
     });
+  }
+
+  Future<void> _toggleSortByName() async {
+    var prefs = await SharedPreferences.getInstance();
+
+    var sort = prefs.getBool(_sortByNameKey) ?? false;
+    prefs.setBool(_sortByNameKey, !sort);
+
+    _load();
   }
 
   _readManga(int mangaID) async {
@@ -168,7 +180,6 @@ class _FavoritesPage extends State<FavoritesPage> {
     } finally {
       pd.close();
     }
-    await _load();
     snack.show("Finished Downloading");
   }
 
@@ -198,7 +209,6 @@ class _FavoritesPage extends State<FavoritesPage> {
       pd.close();
     }
 
-    await _load();
     snack.show("Finished Downloading");
   }
 
@@ -226,7 +236,7 @@ class _FavoritesPage extends State<FavoritesPage> {
 
           ch.markDownloaded(imgs.length);
           await DatabaseHelper.db.updateManga(manga);
-
+          await _load();
         } on TimeoutException catch (_) {
           snack.show('Timeout downloading "${manga.title}/${ch.title}"');
         } catch (e) {
@@ -272,6 +282,20 @@ class _FavoritesPage extends State<FavoritesPage> {
     _lookForNewChaptersInMangas([mng!]);
   }
 
+  Future<void> _clipAllAndLookForNewChapters() async {
+    var mngs = await DatabaseHelper.db.getMangas();
+    for (final m in mngs) {
+      m.clipUndownloadedChapters();
+    }
+    _lookForNewChaptersInMangas(mngs);
+  }
+
+  Future<void> _clipAndLookForNewChapters(MangaView manga) async {
+    var mng = await DatabaseHelper.db.getManga(manga.id);
+    mng!.clipUndownloadedChapters();
+    _lookForNewChaptersInMangas([mng]);
+  }
+
   Future<void> _lookForNewChaptersInMangas(List<Manga> mng) async {
     var snack = Snack(context: this.context);
     final ProgressDialog pd = ProgressDialog(context: this.context);
@@ -298,6 +322,7 @@ class _FavoritesPage extends State<FavoritesPage> {
         }
         if (newChapters.isNotEmpty) {
           await DatabaseHelper.db.updateManga(m);
+          await _load();
         }
       } on TimeoutException catch (_) {
         snack.show('Timed out while looking for new chapters for "${m.title}"');
@@ -308,7 +333,6 @@ class _FavoritesPage extends State<FavoritesPage> {
       pd.update(value: ++count);
     }
     snack.show('Finished looking for new chapters');
-    _load();
   }
 
   _scrubAllMangas() async {
@@ -398,7 +422,7 @@ class _FavoritesPage extends State<FavoritesPage> {
         snack.show('No permission granted');
       }
       pd.close();
-      _load();
+      await _load();
     });
   }
 
@@ -441,6 +465,12 @@ class _FavoritesPage extends State<FavoritesPage> {
                 case 'refresh':
                   _lookForAllNewChapters();
                   break;
+                case 'clip':
+                  _clipAllAndLookForNewChapters();
+                  break;
+                case 'sortByName':
+                  _toggleSortByName();
+                  break;
                 case 'export':
                   _exportData();
                   break;
@@ -459,6 +489,13 @@ class _FavoritesPage extends State<FavoritesPage> {
                   ),
                 ),
                 const PopupMenuItem(
+                  value: 'clip',
+                  child: ListTile(
+                    leading: Icon(Icons.document_scanner_outlined),
+                    title: Text('Trim & scan'),
+                  ),
+                ),
+                const PopupMenuItem(
                   value: 'download',
                   child: ListTile(
                     leading: Icon(Icons.download),
@@ -470,6 +507,14 @@ class _FavoritesPage extends State<FavoritesPage> {
                   child: ListTile(
                     leading: Icon(Icons.recycling),
                     title: Text('Recycle'),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'sortByName',
+                  child: ListTile(
+                    leading: _sortByName ? const Icon(Icons.check_box_outlined) : const Icon(Icons.check_box_outline_blank),
+                    title: const Text('Sort by name'),
                   ),
                 ),
                 const PopupMenuDivider(),
@@ -629,6 +674,9 @@ class _FavoritesPage extends State<FavoritesPage> {
                           case 'refresh':
                             _lookForNewChapters(manga);
                             break;
+                          case 'clip':
+                            _clipAndLookForNewChapters(manga);
+                            break;
                           // default:
                           //   throw UnimplementedError();
                         }
@@ -647,6 +695,13 @@ class _FavoritesPage extends State<FavoritesPage> {
                             child: ListTile(
                               leading: Icon(Icons.refresh),
                               title: Text('Refresh'),
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'clip',
+                            child: ListTile(
+                              leading: Icon(Icons.document_scanner_outlined),
+                              title: Text('Trim & scan'),
                             ),
                           ),
                           PopupMenuItem(

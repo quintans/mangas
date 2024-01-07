@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:mangas/models/persistence.dart';
 import 'package:mangas/services/filesystem.dart';
 import 'package:mangas/services/persistence.dart';
-import 'package:mangas/services/scrapers.dart';
 
 class ReaderPage extends StatefulWidget {
   final Manga manga;
@@ -86,7 +85,7 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
   void _scrollUp() {
     _controller.animateTo(
       0,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 1),
       curve: Curves.fastOutSlowIn,
     );
   }
@@ -99,11 +98,16 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
     return Scaffold(
       appBar: showBars
           ? AppBar(
+              centerTitle: true,
+              toolbarHeight: 40,
+              backgroundColor: Colors.indigo,
+              foregroundColor:Colors.white,
               title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   manga.title,
+                  style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
                 ),
               ],
             ))
@@ -128,15 +132,17 @@ class _ReaderPage extends State<ReaderPage> with RouteAware {
               // );
             },
           )),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.small(
         onPressed: () {
           _scrollUp();
         },
         backgroundColor: Colors.blueGrey.withOpacity(0.3),
+        foregroundColor: Colors.white.withOpacity(0.5),
         child: const Icon(Icons.arrow_upward),
       ),
       bottomNavigationBar: showBars
           ? BottomAppBar(
+              height: 60,
               color: Colors.indigo,
               child: Row(
                 children: [

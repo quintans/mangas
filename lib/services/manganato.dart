@@ -63,9 +63,9 @@ class Manganato implements Scraper{
   Future<List<ChapterResult>> chapters(Manga manga) async {
     String mangaSrc = manga.src;
     var chapters = manga.getChapters();
-    var fromChapterSrc = '';
+    var fromChapterTitle = '';
     if (chapters.isNotEmpty) {
-      fromChapterSrc = chapters.last.src;
+      fromChapterTitle = chapters.last.title;
     }
 
     final response = await http.Client().get(Uri.parse(mangaSrc));
@@ -79,12 +79,12 @@ class Manganato implements Scraper{
       var results = <ChapterResult>[];
 
       for (var element in anchors) {
-        var src = element.attributes['href'];
-        if (fromChapterSrc == src) {
+        var title = element.innerHtml;
+        if (fromChapterTitle == title) {
           break;
         }
 
-        var title = element.innerHtml;
+        var src = element.attributes['href'];
         var dateString =
             element.nextElementSibling?.nextElementSibling?.attributes['title'];
         DateTime timestamp;

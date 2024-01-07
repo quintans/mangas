@@ -130,6 +130,20 @@ class Manga {
   bool isBookmarked(Chapter chapter) {
     return bookmarkedChapterID == chapter.id;
   }
+
+  clipUndownloadedChapters() {
+    while (true) {
+      var c = chapters.last;
+      if (c.id <= 1 || c.id <= bookmarkedChapterID || c.downloaded) {
+        break;
+      }
+      chapters.removeLast();
+    }
+    bookmarkedChapterID = chapters.last.id;
+    lastChapterID = bookmarkedChapterID;
+
+    return bookmarkedChapterID;
+  }
 }
 
 class Chapter {
