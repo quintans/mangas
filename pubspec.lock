@@ -232,6 +232,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.0"
+  p_limit:
+    dependency: "direct main"
+    description:
+      name: p_limit
+      sha256: "30471ba7a58d89b0d3d4464d862dc8a0512c7abe532eef1c986e3e67ad6b0d9c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   package_config:
     dependency: transitive
     description:

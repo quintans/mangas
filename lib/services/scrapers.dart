@@ -31,7 +31,7 @@ abstract class Scraper {
     throw Exception('search is unimplemented');
   }
 
-  Future<List<ChapterResult>> chapters(Manga manga) async {
+  Future<List<ChapterResult>> chapters(Manga manga, bool rescan) async {
     throw Exception('chapters is unimplemented');
   }
 

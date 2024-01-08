@@ -21,7 +21,9 @@ class Manganato implements Scraper{
   @override
   Future<List<SearchResult>> search(String query) async {
     query = query.trim();
-    var url = '$rootURL$searchPath/${query.replaceAll(' ', '_')}';
+    query = query.replaceAll(RegExp(r"[-!$%^&*()+|~=`{}#@\[\]:;'’<>?, ]"), '_');
+
+    var url = '$rootURL$searchPath/$query';
 
     final response = await http.Client().get(Uri.parse(url));
     if (response.statusCode != 200) {
@@ -55,17 +57,21 @@ class Manganato implements Scraper{
 
       return results;
     } catch (e) {
-      throw Exception('Failed to parse $url: $e');
+      throw Exception('Failed to parse URL $url: $e');
     }
   }
 
   @override
-  Future<List<ChapterResult>> chapters(Manga manga) async {
+  Future<List<ChapterResult>> chapters(Manga manga, bool rescan) async {
     String mangaSrc = manga.src;
     var chapters = manga.getChapters();
     var fromChapterTitle = '';
     if (chapters.isNotEmpty) {
-      fromChapterTitle = chapters.last.title;
+      if (rescan) {
+        fromChapterTitle = chapters[manga.bookmarkedChapterID - 1].title;
+      } else {
+        fromChapterTitle = chapters.last.title;
+      }
     }
 
     final response = await http.Client().get(Uri.parse(mangaSrc));
@@ -106,7 +112,7 @@ class Manganato implements Scraper{
 
       return List.from(results.reversed);
     } catch (e) {
-      throw Exception('Failed to parse $mangaSrc: $e');
+      throw Exception('Failed to parse manga source $mangaSrc: $e');
     }
   }
 
@@ -121,6 +127,11 @@ class Manganato implements Scraper{
     try {
       var container =
           document.getElementsByClassName('container-chapter-reader');
+
+      if (container.isEmpty) {
+        throw Exception('Unable to find images container for $chapterSrc. Did the url changed?');
+      }
+
       var results = <String>[];
 
       for (var element in container[0].getElementsByTagName('img')) {
@@ -132,7 +143,7 @@ class Manganato implements Scraper{
 
       return results;
     } catch (e) {
-      throw Exception('Failed to parse $chapterSrc: $e');
+      throw Exception('Failed to parse chapter source $chapterSrc: $e');
     }
   }
 

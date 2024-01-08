@@ -70,12 +70,16 @@ class Asura implements Scraper{
   }
 
   @override
-  Future<List<ChapterResult>> chapters(Manga manga) async {
+  Future<List<ChapterResult>> chapters(Manga manga, bool rescan) async {
     String mangaSrc = manga.src;
     var chapters = manga.getChapters();
     var fromChapterTitle = '';
     if (chapters.isNotEmpty) {
-      fromChapterTitle = chapters.last.title;
+      if (rescan) {
+        fromChapterTitle = chapters[manga.bookmarkedChapterID - 1].title;
+      } else {
+        fromChapterTitle = chapters.last.title;
+      }
     }
     
     final response = await http.Client().get(Uri.parse(mangaSrc));

@@ -1,3 +1,5 @@
+import 'package:mangas/models/remote.dart';
+
 class Manga {
   final int id;
   final String title;
@@ -57,14 +59,26 @@ class Manga {
     return m;
   }
 
-  addChapter(Chapter ch) {
-    // check if it already exists
+  upsertChapter(ChapterResult r) {
+    // update if it already exists
     for (var c in chapters) {
-      if (c.src == ch.src) {
+      if (c.title == r.title) {
+        c.updateIfNotDownloaded(r);
         return;
       }
     }
-    ch.id = chapters.length + 1;
+
+    var ch = Chapter(
+      id: chapters.length + 1,
+      mangaID: 0,
+      title: r.title,
+      src: r.src,
+      uploadedAt: r.uploadedAt,
+      downloaded: false,
+      imgCnt: 0,
+      folder: r.folder,
+    );
+
     lastChapterID = ch.id;
     chapters.add(ch);
   }
@@ -130,20 +144,6 @@ class Manga {
   bool isBookmarked(Chapter chapter) {
     return bookmarkedChapterID == chapter.id;
   }
-
-  clipUndownloadedChapters() {
-    while (true) {
-      var c = chapters.last;
-      if (c.id <= 1 || c.id <= bookmarkedChapterID || c.downloaded) {
-        break;
-      }
-      chapters.removeLast();
-    }
-    bookmarkedChapterID = chapters.last.id;
-    lastChapterID = bookmarkedChapterID;
-
-    return bookmarkedChapterID;
-  }
 }
 
 class Chapter {
@@ -152,8 +152,8 @@ class Chapter {
   int id;
   int mangaID;
   final String title;
-  final String src;
-  final DateTime uploadedAt;
+  String src;
+  DateTime uploadedAt;
   bool downloaded = false;
   int imgCnt = 0;
   bool _dirty = false;
@@ -213,6 +213,18 @@ class Chapter {
   void discarded() {
     downloaded = false;
     imgCnt = 0;
+    _dirty = true;
+  }
+
+  void updateIfNotDownloaded(ChapterResult r) {
+    if (downloaded) {
+      return;
+    }
+
+    src = r.src;
+    uploadedAt = r.uploadedAt;
+    folder = r.folder;
+
     _dirty = true;
   }
 

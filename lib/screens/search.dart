@@ -60,6 +60,12 @@ class _SearchPage extends State<SearchPage> {
         rating: v.rating,
       ));
     }
+
+    if (r.isEmpty) {
+      var snack = Snack(context: this.context);
+      snack.show("No results were found");
+    }
+
     setState(() {
       _items.clear();
       _items.addAll(r);
@@ -129,21 +135,10 @@ class _SearchPage extends State<SearchPage> {
         chapters: []);
 
     var scraper = Scrapers.getScraper(_scraperID);
-    var res = await scraper.chapters(manga);
+    var res = await scraper.chapters(manga, false);
     for (var r in res) {
-      manga.addChapter(Chapter(
-        id: 0,
-        mangaID: 0,
-        title: r.title,
-        src: r.src,
-        uploadedAt: r.uploadedAt,
-        downloaded: false,
-        imgCnt: 0,
-        folder: r.folder,
-      ));
+      manga.upsertChapter(r);
     }
-
-
 
     // save image to directory
     await MyFS.downloadMangaCover(Dio(), _scraperID, manga.folder, manga.img);

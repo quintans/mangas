@@ -47,6 +47,7 @@ dependencies:
   file_picker: ^5.3.3
   dio: ^5.3.2
   native_dio_adapter: ^1.0.0
+  p_limit: ^1.0.3
 
 dev_dependencies:
   flutter_test:

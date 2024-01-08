@@ -16,8 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:sn_progress_dialog/sn_progress_dialog.dart';
 import 'package:path/path.dart';
 import 'package:dio/dio.dart';
-
-const downloadTimeLimit = Duration(seconds: 20);
+import 'package:p_limit/p_limit.dart';
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({Key? key}) : super(key: key);
@@ -50,13 +49,12 @@ class _FavoritesPage extends State<FavoritesPage> {
     var last = prefs.getInt(_lastReadKey) ?? -1;
     var sort = prefs.getBool(_sortByNameKey) ?? false;
 
-    DatabaseHelper.db.getMangaReadingOrder(sort).then((value) {
-      // check if file exists in FS
-      setState(() {
-        mangas = value;
-        _lastRead = last;
-        _sortByName = sort;
-      });
+    var value = await DatabaseHelper.db.getMangaReadingOrder(sort);
+    // check if file exists in FS
+    setState(() {
+      mangas = value;
+      _lastRead = last;
+      _sortByName = sort;
     });
   }
 
@@ -66,7 +64,7 @@ class _FavoritesPage extends State<FavoritesPage> {
     var sort = prefs.getBool(_sortByNameKey) ?? false;
     prefs.setBool(_sortByNameKey, !sort);
 
-    _load();
+    await _load();
   }
 
   _readManga(int mangaID) async {
@@ -215,39 +213,31 @@ class _FavoritesPage extends State<FavoritesPage> {
   Future<int> _downloadChapters(
     Snack snack, ProgressDialog pd, Manga manga, int count) async {
     var chapters = manga.getChaptersToDownload();
-    final dioClient = Dio();
+
+    final dioClient = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 60),
+    ));
 
     var chCnt = 1;
     var msg = "($chCnt/${chapters.length}) ${manga.title}";
     pd.update(value: count, msg: msg);
     try {
       var scraper = Scrapers.getScraper(manga.scraperID);
+      final limit = PLimit<void>(5);
+      var futures = <Future<void>>[];
       for (var ch in chapters) {
-        var imgs = await scraper.chapterImages(ch.src);
-        List<Future> futures = [];
-        for (var i = 0; i < imgs.length; i++) {
-          var f = MyFS.downloadChapterImages(
-              dioClient, manga.scraperID, manga.folder, ch.folder, i, imgs[i], scraper.headers());
-          futures.add(f);
-        }
-
-        try {
-          await Future.wait(futures).timeout(downloadTimeLimit);
-
-          ch.markDownloaded(imgs.length);
-          await DatabaseHelper.db.updateManga(manga);
-          await _load();
-        } on TimeoutException catch (_) {
-          snack.show('Timeout downloading "${manga.title}/${ch.title}"');
-        } catch (e) {
-          snack.show('Failed for "${manga.title}/${ch.title}": $e');
-        }
-
-        chCnt++;
-        count++;
-        msg = "($chCnt/${chapters.length}) ${manga.title}";
-        pd.update(value: count, msg: msg);
+        var f = limit(() {
+          return _downloadChapterImages(snack, pd, dioClient, scraper, manga, ch, () {
+            chCnt++;
+            count++;
+            msg = "($chCnt/${chapters.length}) ${manga.title}";
+            pd.update(value: count, msg: msg);
+          });
+        });
+        futures.add(f);
       }
+      await Future.wait(futures);
     } catch (e) {
       final snackBar = SnackBar(
         duration: const Duration(days: 1),
@@ -263,6 +253,28 @@ class _FavoritesPage extends State<FavoritesPage> {
     return count;
   }
 
+  Future<void> _downloadChapterImages(Snack snack, ProgressDialog pd, Dio dioClient, Scraper scraper, Manga manga, Chapter ch, Function() done) async {
+    try {
+      var imgs = await scraper.chapterImages(ch.src);
+      List<Future> futures = [];
+      for (var i = 0; i < imgs.length; i++) {
+        var f = MyFS.downloadChapterImages(
+            dioClient, manga.scraperID, manga.folder, ch.folder, i, imgs[i], scraper.headers());
+        futures.add(f);
+      }
+
+      await Future.wait(futures);
+      ch.markDownloaded(imgs.length);
+      await DatabaseHelper.db.updateManga(manga);
+      await _load();
+    } on TimeoutException catch (_) {
+      snack.show('Timeout downloading "${manga.title}/${ch.title}"');
+    } catch (e) {
+      snack.error('Failed for "${manga.title}/${ch.title}": $e');
+    }
+    done();
+  }
+
   _deleteManga(BuildContext context, MangaView mangaView) async {
     _confirm("Would you like to delete ${mangaView.title}?", () {
       DatabaseHelper.db.deleteManga(mangaView.id).then((value) {
@@ -274,29 +286,71 @@ class _FavoritesPage extends State<FavoritesPage> {
 
   Future<void> _lookForAllNewChapters() async {
     var mng = await DatabaseHelper.db.getMangas();
-    _lookForNewChaptersInMangas(mng);
+    _lookForNewChaptersInMangas(mng, false);
   }
 
   Future<void> _lookForNewChapters(MangaView manga) async {
     var mng = await DatabaseHelper.db.getManga(manga.id);
-    _lookForNewChaptersInMangas([mng!]);
+    _lookForNewChaptersInMangas([mng!], false);
   }
 
-  Future<void> _clipAllAndLookForNewChapters() async {
+  Future<void> _rescanAllAndLookForNewChapters() async {
     var mngs = await DatabaseHelper.db.getMangas();
-    for (final m in mngs) {
-      m.clipUndownloadedChapters();
+    _lookForNewChaptersInMangas(mngs, true);
+  }
+
+  Future<void> _dropAndReload(BuildContext context, MangaView mv) async {
+    var scraper = Scrapers.getScraper(mv.scraperID);
+    var res = await scraper.search(mv.title);
+    if (res.length != 1) {
+      var snack = Snack(context: this.context);
+      var extra = "\nNothing was found";
+      if (res.isNotEmpty) {
+        extra = "Found:";
+        for (var i = 0; i < 3 || i < res.length; i++) {
+          extra = "\n${res[i]}";
+        }
+      }
+      snack.show("Couldn't find unique result for ${mv.title}. $extra");
+      return;
     }
-    _lookForNewChaptersInMangas(mngs);
+
+    var item = res.first;
+
+    var original = await DatabaseHelper.db.getManga(mv.id);
+
+    var manga = Manga(
+        id: 0,
+        title: item.title,
+        img: item.img,
+        src: item.src,
+        scraperID: mv.scraperID,
+        bookmarkedChapterID: original?.bookmarkedChapterID ?? 1,
+        lastChapterID: 0,
+        folder: item.folder,
+        chapters: []);
+
+    var result = await scraper.chapters(manga, false);
+    for (var r in result) {
+      manga.upsertChapter(r);
+    }
+
+    _confirm("Would you like to drop and rescan ${mv.title}?", () {
+      DatabaseHelper.db.deleteManga(mv.id).then((value) {
+        _load().then(
+                (value) {
+                  MyFS.deleteManga(mv.scraperID, mv.folder);
+                  // save image to directory
+                  MyFS.downloadMangaCover(Dio(), mv.scraperID, manga.folder, manga.img).
+                    then((value) => DatabaseHelper.db.insertManga(manga));
+                });
+      });
+    });
+
+    await _load();
   }
 
-  Future<void> _clipAndLookForNewChapters(MangaView manga) async {
-    var mng = await DatabaseHelper.db.getManga(manga.id);
-    mng!.clipUndownloadedChapters();
-    _lookForNewChaptersInMangas([mng]);
-  }
-
-  Future<void> _lookForNewChaptersInMangas(List<Manga> mng) async {
+  Future<void> _lookForNewChaptersInMangas(List<Manga> mng, bool rescan) async {
     var snack = Snack(context: this.context);
     final ProgressDialog pd = ProgressDialog(context: this.context);
     pd.show(max: mng.length, msg: 'Looking for new chapters...');
@@ -306,19 +360,10 @@ class _FavoritesPage extends State<FavoritesPage> {
       var scraper = Scrapers.getScraper(m.scraperID);
 
       try {
-        var newChapters = await scraper.chapters(m).timeout(timeLimit);
+        var newChapters = await scraper.chapters(m, rescan).timeout(timeLimit);
 
         for (var r in newChapters) {
-          m.addChapter(Chapter(
-            id: 0,
-            mangaID: 0,
-            title: r.title,
-            src: r.src,
-            uploadedAt: r.uploadedAt,
-            downloaded: false,
-            imgCnt: 0,
-            folder: r.folder,
-          ));
+          m.upsertChapter(r);
         }
         if (newChapters.isNotEmpty) {
           await DatabaseHelper.db.updateManga(m);
@@ -362,7 +407,7 @@ class _FavoritesPage extends State<FavoritesPage> {
       c.discarded();
     }
     if (chapters.isNotEmpty) {
-      DatabaseHelper.db.updateManga(manga);
+      await DatabaseHelper.db.updateManga(manga);
     }
     return chapters.length;
   }
@@ -465,8 +510,8 @@ class _FavoritesPage extends State<FavoritesPage> {
                 case 'refresh':
                   _lookForAllNewChapters();
                   break;
-                case 'clip':
-                  _clipAllAndLookForNewChapters();
+                case 'rescan':
+                  _rescanAllAndLookForNewChapters();
                   break;
                 case 'sortByName':
                   _toggleSortByName();
@@ -489,10 +534,10 @@ class _FavoritesPage extends State<FavoritesPage> {
                   ),
                 ),
                 const PopupMenuItem(
-                  value: 'clip',
+                  value: 'rescan',
                   child: ListTile(
                     leading: Icon(Icons.document_scanner_outlined),
-                    title: Text('Trim & scan'),
+                    title: Text('Rescan'),
                   ),
                 ),
                 const PopupMenuItem(
@@ -674,8 +719,8 @@ class _FavoritesPage extends State<FavoritesPage> {
                           case 'refresh':
                             _lookForNewChapters(manga);
                             break;
-                          case 'clip':
-                            _clipAndLookForNewChapters(manga);
+                          case 'drop_reload':
+                            _dropAndReload(context, manga);
                             break;
                           // default:
                           //   throw UnimplementedError();
@@ -698,10 +743,10 @@ class _FavoritesPage extends State<FavoritesPage> {
                             ),
                           ),
                           const PopupMenuItem(
-                            value: 'clip',
+                            value: 'drop_reload',
                             child: ListTile(
-                              leading: Icon(Icons.document_scanner_outlined),
-                              title: Text('Trim & scan'),
+                              leading: Icon(Icons.restart_alt_outlined),
+                              title: Text('Drop & Reload'),
                             ),
                           ),
                           PopupMenuItem(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
@@ -47,13 +48,25 @@ class MyFS {
     var idx = index.toString().padLeft(3, '0');
     File file = File(
         join([mangasFolder(scraperID), mangaSrc, chapterSrc, '$chapterSrc-$idx.jpg']));
-    await dioClient.download(
-      img,
-      file.path,
-      options: Options(
-          headers: headers,
-      ),
-    );
+    for (var retry = 0; retry < 1; retry++) {
+      try {
+        await dioClient.download(
+          img,
+          file.path,
+          options: Options(
+            headers: headers,
+          ),
+        );
+      } on DioException catch (e) {
+        if (e.type == DioExceptionType.connectionTimeout) {
+          continue;
+        }
+        if (e.type == DioExceptionType.receiveTimeout) {
+          throw TimeoutException("failed downloading");
+        }
+      }
+      return;
+    }
   }
 
   static File loadChapterImage(

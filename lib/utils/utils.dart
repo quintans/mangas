@@ -8,7 +8,19 @@ class Snack {
   });
 
   show(String msg) {
-    var snackBar = SnackBar(content: Text(msg));
+    var snackBar = SnackBar(
+        content: Text(msg),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  error(String msg) {
+    var snackBar = SnackBar(
+      showCloseIcon: true,
+      backgroundColor: Colors.deepOrange,
+      duration: const Duration(seconds: 10),
+      content: Text(msg),
+    );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 }

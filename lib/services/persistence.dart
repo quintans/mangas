@@ -180,12 +180,12 @@ class DatabaseHelper {
   Future<void> deleteManga(int mangaID) async {
     final db = await database;
     await db!.transaction((txn) async {
-      txn.delete(
+      await txn.delete(
         _chTable,
         where: '$_chMangaID = ?',
         whereArgs: [mangaID],
       );
-      txn.delete(
+      await txn.delete(
         _mgTable,
         where: '$_mgID = ?',
         whereArgs: [mangaID],
@@ -227,13 +227,6 @@ class DatabaseHelper {
     List<MangaView> mangas = [];
 
     if (sortByName) {
-      // final List<Map<String, Object?>> read = await db!.rawQuery('''SELECT m.*, c.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt,
-      //   (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download,
-      //   (SELECT c.$_chTitle FROM $_chTable c WHERE c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgBookmarkedChapterID)  AS bm_title,
-      //   (SELECT c.$_chTitle FROM $_chTable c WHERE c.$_chMangaID = m.$_mgID AND c.$_chID = m.$_mgLastChapterID)  AS last_title,
-      //      FROM $_mgTable m
-      //      LEFT JOIN $_chTable c ON c.$_chMangaID = m.$_mgID
-      //      ORDER BY m.$_mgTitle ASC''');
       final List<Map<String, Object?>> recs = await db!.rawQuery('''SELECT m.*, v.$_chTitle AS bm_title, c.$_chTitle AS last_title, c.$_chUploadedAt, 
         (SELECT COUNT(*) FROM $_chTable cc WHERE cc.$_chMangaID = m.$_mgID AND cc.$_chID >= m.$_mgBookmarkedChapterID AND cc.$_chDownloaded = FALSE) AS to_download
            FROM $_mgTable m
